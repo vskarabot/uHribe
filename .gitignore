@@ -1,0 +1,32 @@
+# Flutter/Dart
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/build/
+**/ios/Pods/
+**/ios/.symlinks/
+**/android/.gradle/
+**/android/local.properties
+
+# Lockfiles: committed for anything that is run rather than depended on, so
+# a clone builds and imports with the same versions it was tested against.
+**/pubspec.lock
+!app/pubspec.lock
+!tool/pubspec.lock
+
+# Env / secrets. The bare rule matches at any depth, so app/.env and tool/.env
+# are both covered.
+.env
+.env.local
+
+# Tooling
+.claude/
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db

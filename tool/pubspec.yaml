@@ -1,0 +1,11 @@
+name: uhribe_import
+description: Imports Slovenian peaks and hiking routes from OpenStreetMap into Supabase.
+publish_to: 'none'
+version: 1.0.0
+
+environment:
+  sdk: ^3.11.4
+
+dependencies:
+  http: ^1.2.0
+  supabase: ^2.2.0
