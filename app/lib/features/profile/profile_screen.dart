@@ -23,11 +23,14 @@ class ProfileScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text(Strings.navProfile),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: Strings.logout,
+          TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.onSurface,
+            ),
             onPressed: () => ref.read(authRepositoryProvider).signOut(),
+            child: const Text(Strings.logout),
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: RefreshIndicator(
@@ -80,24 +83,54 @@ class _ProfileHeader extends ConsumerStatefulWidget {
   ConsumerState<_ProfileHeader> createState() => _ProfileHeaderState();
 }
 
+enum _SaveState { idle, saving, saved }
+
 class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
+  /// How long the save button shows its check mark before the form closes —
+  /// long enough to register, short enough not to feel like a wait.
+  static const _savedHold = Duration(milliseconds: 900);
+
   bool _editing = false;
   bool _uploadingAvatar = false;
-  late final _nameController = TextEditingController(text: widget.profile.displayName ?? '');
+  _SaveState _saveState = _SaveState.idle;
+  final _nameController = TextEditingController();
   String? _region;
   String? _avatarUrl;
 
   @override
   void initState() {
     super.initState();
-    _region = widget.profile.homeRegion;
-    _avatarUrl = widget.profile.avatarUrl;
+    // Rebuilds on every keystroke so the save button can appear the moment
+    // the name differs from what's stored.
+    _nameController.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     super.dispose();
+  }
+
+  /// Whether the form differs from the stored profile — the only time there
+  /// is anything to save, so the only time the save button is shown.
+  bool get _dirty {
+    final profile = widget.profile;
+    return _nameController.text.trim() != (profile.displayName ?? '') ||
+        (_region ?? '') != (profile.homeRegion ?? '') ||
+        (_avatarUrl ?? '') != (profile.avatarUrl ?? '');
+  }
+
+  /// Opens the form from the stored profile, so a cancelled edit never
+  /// lingers into the next one.
+  void _startEditing() {
+    final profile = widget.profile;
+    setState(() {
+      _nameController.text = profile.displayName ?? '';
+      _region = profile.homeRegion;
+      _avatarUrl = profile.avatarUrl;
+      _saveState = _SaveState.idle;
+      _editing = true;
+    });
   }
 
   Future<void> _pickAvatar() async {
@@ -138,31 +171,35 @@ class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
       final url = await ref.read(profileRepositoryProvider).uploadAvatar(bytes, ext);
       if (mounted) setState(() => _avatarUrl = url);
     } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text(Strings.avatarUploadError)));
-      }
+      if (mounted) _showSnackBar(context, Strings.avatarUploadError);
     } finally {
       if (mounted) setState(() => _uploadingAvatar = false);
     }
   }
 
+  /// Confirms on the button itself rather than with a snack bar: the button
+  /// is where the user is looking, and a snack bar ends up under the nav bar.
   Future<void> _save() async {
-    await ref
-        .read(profileRepositoryProvider)
-        .update(
-          displayName: _nameController.text.trim(),
-          avatarUrl: _avatarUrl ?? '',
-          homeRegion: _region ?? '',
-        );
-    ref.invalidate(myProfileProvider);
-    if (mounted) {
-      setState(() => _editing = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text(Strings.profileSaved)));
+    setState(() => _saveState = _SaveState.saving);
+    try {
+      await ref
+          .read(profileRepositoryProvider)
+          .update(
+            displayName: _nameController.text.trim(),
+            avatarUrl: _avatarUrl ?? '',
+            homeRegion: _region ?? '',
+          );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _saveState = _SaveState.idle);
+      _showSnackBar(context, Strings.profileSaveError);
+      return;
     }
+    ref.invalidate(myProfileProvider);
+    if (!mounted) return;
+    setState(() => _saveState = _SaveState.saved);
+    await Future<void>.delayed(_savedHold);
+    if (mounted) setState(() => _editing = false);
   }
 
   @override
@@ -200,15 +237,34 @@ class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
           IconButton(
             icon: const Icon(Icons.edit_outlined),
             tooltip: Strings.editProfile,
-            onPressed: () => setState(() => _editing = true),
+            onPressed: _startEditing,
           ),
         ],
       );
     }
 
+    final busy = _saveState != _SaveState.idle;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                Strings.editProfile,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              ),
+            ),
+            // Where the pencil was, so the same spot opens and closes the form.
+            IconButton(
+              icon: const Icon(Icons.close),
+              tooltip: Strings.cancel,
+              onPressed: busy ? null : () => setState(() => _editing = false),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
         Center(
           child: GestureDetector(
             onTap: _uploadingAvatar ? null : _pickAvatar,
@@ -273,24 +329,70 @@ class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
             onChanged: (v) => setState(() => _region = v),
           ),
         ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () => setState(() => _editing = false),
-                child: const Text(Strings.cancel),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: FilledButton(onPressed: _save, child: const Text(Strings.save)),
-            ),
-          ],
+        // Only there once there's something to save; it stays through the
+        // saving and saved states even though the form is no longer dirty
+        // by then, so the confirmation has somewhere to show.
+        AnimatedSize(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          alignment: Alignment.topCenter,
+          child: (_dirty || busy)
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: FilledButton(
+                    onPressed: (busy || _uploadingAvatar) ? null : _save,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: _SaveButtonLabel(key: ValueKey(_saveState), state: _saveState),
+                    ),
+                  ),
+                )
+              : const SizedBox(width: double.infinity),
         ),
       ],
     );
   }
+}
+
+class _SaveButtonLabel extends StatelessWidget {
+  final _SaveState state;
+
+  const _SaveButtonLabel({super.key, required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    // The button is disabled while saving, so the label has to bring its own
+    // color — the disabled foreground would grey out the confirmation.
+    final color = Theme.of(context).colorScheme.onPrimary;
+    return switch (state) {
+      _SaveState.idle => const Text(Strings.save),
+      _SaveState.saving => SizedBox(
+        width: 18,
+        height: 18,
+        child: CircularProgressIndicator(strokeWidth: 2, color: color),
+      ),
+      _SaveState.saved => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.check, size: 18, color: color),
+          const SizedBox(width: 8),
+          Text(Strings.profileSaved, style: TextStyle(color: color)),
+        ],
+      ),
+    };
+  }
+}
+
+/// Floated clear of the shell's pill nav bar, which otherwise covers a
+/// bottom-anchored snack bar.
+void _showSnackBar(BuildContext context, String message) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(message),
+      behavior: SnackBarBehavior.floating,
+      margin: EdgeInsets.fromLTRB(16, 0, 16, MediaQuery.paddingOf(context).bottom + 16),
+    ),
+  );
 }
 
 /// The numbers above the visit list: counters in a grid, then the handful of
@@ -534,9 +636,7 @@ class _VisitsSectionState extends ConsumerState<_VisitsSection> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _hiddenIds.remove(visit.id));
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text(Strings.visitDeleteError)));
+      _showSnackBar(context, Strings.visitDeleteError);
     }
   }
 

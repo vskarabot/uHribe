@@ -101,7 +101,18 @@ class Strings {
   static const takePhoto = 'Fotografiraj';
   static const avatarUploadError = 'Slike ni bilo mogoče naložiti.';
   static const editProfile = 'Uredi profil';
-  static const profileSaved = 'Profil shranjen.';
+  static const profileSaved = 'Shranjeno';
+  static const profileSaveError = 'Profila ni bilo mogoče shraniti.';
+
+  // Settings
+  static const settingsGeneral = 'Splošno';
+  static const settingsGeneralSubtitle = 'Videz in lokacija';
+  static const settingsAbout = 'O aplikaciji';
+  static const appTagline = 'Beleženje obiskanih slovenskih vrhov.';
+  static const dataSources = 'Viri podatkov';
+  static const peakDataSource = 'Vrhovi in poti';
+  static const mapDataSource = 'Zemljevid';
+  static const copyright = '© 2026 uHribe. Vse pravice pridržane.';
   static const darkMode = 'Temni način';
   static const locationSetting = 'Dovoli uporabo lokacije';
   static const statsPeaksVisited = 'Obiskanih vrhov';
@@ -158,10 +169,10 @@ class Strings {
   static const showMyLocation = 'Pokaži mojo lokacijo';
   static const openSettings = 'Nastavitve';
 
-  // Attribution. Unused at the moment because the Mapbox SDK draws its own
-  // attribution widget over the map — kept rather than deleted because
-  // crediting OSM and Mapbox is a licensing obligation, not a design choice,
-  // so anything that hides the SDK's widget has to put these back.
+  // Attribution. Shown under Settings → O aplikaciji; the map itself relies on
+  // the Mapbox SDK's own attribution widget. Crediting OSM and Mapbox is a
+  // licensing obligation, not a design choice, so anything that hides the
+  // SDK's widget has to put these back on the map.
   static const osmAttribution = '© OpenStreetMap contributors';
   static const mapboxAttribution = '© Mapbox';
 }
