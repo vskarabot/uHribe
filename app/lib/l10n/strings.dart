@@ -167,6 +167,9 @@ class Strings {
       'Dostop do lokacije je zavrnjen. Omogočite ga v nastavitvah aplikacije.';
   static const locationUnavailable = 'Vaše lokacije ni bilo mogoče določiti.';
   static const showMyLocation = 'Pokaži mojo lokacijo';
+  static const showSatelliteMap = 'Satelitski prikaz';
+  static const showOutdoorsMap = 'Zemljevid terena';
+  static const resetNorth = 'Obrni proti severu';
   static const openSettings = 'Nastavitve';
 
   // Attribution. Shown under Settings → O aplikaciji; the map itself relies on

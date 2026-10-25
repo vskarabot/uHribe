@@ -4,7 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart' hide Position;
-import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
+import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' hide Size;
 
 import '../../l10n/strings.dart';
 import '../../models/elevation_bracket.dart';
@@ -38,6 +38,8 @@ const _myLocationZoom = 12.0;
 /// a second peak list covering the thing you're searching.
 const _maxSearchResults = 6;
 
+const _controlsGap = 12.0;
+
 class MapScreen extends ConsumerStatefulWidget {
   const MapScreen({super.key});
 
@@ -54,6 +56,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
   MapboxMap? _map;
   bool _styleReady = false;
+  bool _satellite = false;
+  bool _interactionsAdded = false;
+  double _bearing = 0;
   // The location-component state we last pushed to the map, so a rebuild
   // doesn't re-run the permission check and settings call on every frame.
   bool? _appliedLocationEnabled;
@@ -129,7 +134,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final selectedElevation = ref.watch(selectedElevationBracketProvider);
     final locationEnabled =
         ref.watch(myProfileProvider).value?.locationEnabled ?? false;
-    final colorScheme = Theme.of(context).colorScheme;
 
     // The home shell's floating pill nav bar sits over the map (the shell
     // uses extendBody), and Scaffold reports its height as bottom padding —
@@ -142,6 +146,9 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     // or the other, never both.
     final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
     final controlsInset = math.max(navBarInset, keyboardInset);
+
+    final styleToggleTooltip =
+        _satellite ? Strings.showOutdoorsMap : Strings.showSatelliteMap;
 
     final rawPeaks = peaksAsync.value;
     final peaks = rawPeaks == null
@@ -194,6 +201,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
               styleUri: MapboxStyles.OUTDOORS,
               viewport: _initialViewport,
               onMapCreated: _onMapCreated,
+              onCameraChangeListener: _onCameraChanged,
               onStyleLoadedListener: (_) => _onStyleLoaded(
                   peaks ?? [], rawPeaks, selectedArea, selectedElevation, visitedIds),
             ),
@@ -209,19 +217,33 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                   // share one right edge instead of stepping apart.
                   padding: EdgeInsets.only(
                     right: PillNavBar.horizontalMargin,
-                    bottom: controlsInset + 12,
+                    bottom: controlsInset + _controlsGap,
                   ),
-                  child: FloatingActionButton.small(
-                    onPressed: _goToMyLocation,
-                    tooltip: Strings.showMyLocation,
-                    // Solid brand green with a white glyph. A surface-colored
-                    // button vanished into the Outdoors style's pale terrain;
-                    // dark-on-light is what makes it findable at a glance,
-                    // and green keeps it in the same family as the
-                    // visited-peak pins instead of adding a new accent.
-                    backgroundColor: colorScheme.primary,
-                    foregroundColor: colorScheme.onPrimary,
-                    child: const Icon(Icons.my_location, size: 20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _CompassButton(
+                        bearing: _bearing,
+                        onPressed: _resetBearing,
+                      ),
+                      const SizedBox(height: _controlsGap),
+                      _MapControlButton(
+                        tooltip: styleToggleTooltip,
+                        onPressed: _styleReady ? _toggleSatellite : null,
+                        child: _ControlIcon(
+                          _satellite
+                              ? Icons.terrain_outlined
+                              : Icons.satellite_alt_outlined,
+                          enabled: _styleReady,
+                        ),
+                      ),
+                      const SizedBox(height: _controlsGap),
+                      _MapControlButton(
+                        tooltip: Strings.showMyLocation,
+                        onPressed: _goToMyLocation,
+                        child: const _ControlIcon(Icons.my_location),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -316,6 +338,46 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   Future<void> _onMapCreated(MapboxMap map) async {
     _map = map;
     await map.scaleBar.updateSettings(ScaleBarSettings(enabled: false));
+  }
+
+  Future<void> _placeOrnaments(MapboxMap map) async {
+    if (!mounted) return;
+    final navBarInset = MediaQuery.paddingOf(context).bottom;
+    final ornamentsBottom = navBarInset + _controlsGap;
+
+    await map.compass.updateSettings(CompassSettings(enabled: false));
+    await map.logo.updateSettings(LogoSettings(
+      position: OrnamentPosition.BOTTOM_LEFT,
+      marginLeft: PillNavBar.horizontalMargin,
+      marginBottom: ornamentsBottom,
+    ));
+    await map.attribution.updateSettings(AttributionSettings(
+      position: OrnamentPosition.BOTTOM_LEFT,
+      marginLeft: PillNavBar.horizontalMargin + 92,
+      marginBottom: ornamentsBottom,
+    ));
+  }
+
+  void _onCameraChanged(CameraChangedEventData data) {
+    final bearing = data.cameraState.bearing;
+    if ((bearing - _bearing).abs() < 0.5) return;
+    setState(() => _bearing = bearing);
+  }
+
+  Future<void> _resetBearing() async {
+    await _map?.easeTo(CameraOptions(bearing: 0), MapAnimationOptions(duration: 300));
+  }
+
+  Future<void> _toggleSatellite() async {
+    final map = _map;
+    if (map == null) return;
+    setState(() {
+      _satellite = !_satellite;
+      _styleReady = false;
+    });
+    await map.loadStyleURI(
+      _satellite ? MapboxStyles.SATELLITE_STREETS : MapboxStyles.OUTDOORS,
+    );
   }
 
   /// Moves the camera to wherever the user is as soon as the map comes up, so
@@ -450,6 +512,25 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       iconIgnorePlacement: true,
     ));
 
+    if (!_interactionsAdded) _addInteractions(map);
+    await _placeOrnaments(map);
+
+    _styleReady = true;
+    _lastRawPeaks = rawPeaks;
+    _lastArea = area;
+    _lastElevation = elevation;
+    _lastVisited = visitedIds;
+    if (mounted) setState(() {});
+
+    // Centering waits until here rather than running from onMapCreated: at
+    // creation the platform view isn't guaranteed to be laid out yet, and
+    // setCamera on an unsized view is dropped. By style load it has a size.
+    await _centerOnUserLocation();
+  }
+
+  void _addInteractions(MapboxMap map) {
+    _interactionsAdded = true;
+
     map.addInteraction(
       TapInteraction(
         FeaturesetDescriptor(layerId: _unclusteredLayerId),
@@ -476,17 +557,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       ),
       interactionID: 'tap_cluster',
     );
-
-    _styleReady = true;
-    _lastRawPeaks = rawPeaks;
-    _lastArea = area;
-    _lastElevation = elevation;
-    _lastVisited = visitedIds;
-
-    // Centering waits until here rather than running from onMapCreated: at
-    // creation the platform view isn't guaranteed to be laid out yet, and
-    // setCamera on an unsized view is dropped. By style load it has a size.
-    await _centerOnUserLocation();
   }
 
   Future<void> _updateSource(List<Peak> peaks, Set<int> visitedIds) async {
@@ -655,6 +725,117 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   }
 }
 
+class _MapControlButton extends StatelessWidget {
+  const _MapControlButton({
+    required this.tooltip,
+    required this.onPressed,
+    required this.child,
+  });
+
+  static const size = 48.0;
+  static const _discSize = 43.0;
+
+  final String tooltip;
+  final VoidCallback? onPressed;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        color: Color(0x4DF7F7F7),
+      ),
+      child: Center(
+        child: Tooltip(
+          message: tooltip,
+          child: Material(
+            color: Colors.black,
+            shape: const CircleBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onPressed,
+              child: SizedBox.square(dimension: _discSize, child: child),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ControlIcon extends StatelessWidget {
+  const _ControlIcon(this.icon, {this.enabled = true});
+
+  final IconData icon;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return Icon(icon, size: 22, color: enabled ? Colors.white : Colors.white38);
+  }
+}
+
+/// Stands in for the Mapbox compass, whose native placement wouldn't line up
+/// with the buttons below it. Keeps its space while hidden so they don't jump.
+class _CompassButton extends StatelessWidget {
+  const _CompassButton({required this.bearing, required this.onPressed});
+
+  final double bearing;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final north = bearing.abs() < 0.5 || (360 - bearing.abs()) < 0.5;
+    return IgnorePointer(
+      ignoring: north,
+      child: AnimatedOpacity(
+        opacity: north ? 0 : 1,
+        duration: const Duration(milliseconds: 200),
+        child: _MapControlButton(
+          tooltip: Strings.resetNorth,
+          onPressed: onPressed,
+          child: Transform.rotate(
+            angle: -bearing * math.pi / 180,
+            child: const CustomPaint(painter: _CompassNeedlePainter()),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The Mapbox compass's needle: a coral north half and a white south half.
+class _CompassNeedlePainter extends CustomPainter {
+  const _CompassNeedlePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    const halfWidth = 5.4;
+    const length = 12.0;
+    const gap = 0.8;
+
+    final north = Path()
+      ..moveTo(c.dx, c.dy - length)
+      ..lineTo(c.dx + halfWidth, c.dy - gap)
+      ..lineTo(c.dx - halfWidth, c.dy - gap)
+      ..close();
+    final south = Path()
+      ..moveTo(c.dx, c.dy + length)
+      ..lineTo(c.dx + halfWidth, c.dy + gap)
+      ..lineTo(c.dx - halfWidth, c.dy + gap)
+      ..close();
+
+    canvas.drawPath(north, Paint()..color = const Color(0xFFF67E64));
+    canvas.drawPath(south, Paint()..color = const Color(0xFFFCFCFC));
+  }
+
+  @override
+  bool shouldRepaint(_CompassNeedlePainter oldDelegate) => false;
+}
 
 /// The suggestion panel under the map's search field.
 ///
