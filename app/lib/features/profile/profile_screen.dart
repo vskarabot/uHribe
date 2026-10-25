@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -24,8 +26,10 @@ class ProfileScreen extends ConsumerWidget {
         title: const Text(Strings.navProfile),
         actions: [
           TextButton(
+            // Primary is the forest green in light mode and its lighter tone
+            // in dark mode, which stays readable on the dark surface.
             style: TextButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.onSurface,
+              foregroundColor: Theme.of(context).colorScheme.primary,
             ),
             onPressed: () => ref.read(authRepositoryProvider).signOut(),
             child: const Text(Strings.logout),
@@ -234,10 +238,16 @@ class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
               ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            tooltip: Strings.editProfile,
-            onPressed: _startEditing,
+          CustomPaint(
+            foregroundPainter: _DottedCirclePainter(
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
+            ),
+            child: IconButton(
+              // Same green as "Odjava"; the ring is a fainter tint of it.
+              icon: Icon(Icons.edit_outlined, color: Theme.of(context).colorScheme.primary),
+              tooltip: Strings.editProfile,
+              onPressed: _startEditing,
+            ),
           ),
         ],
       );
@@ -352,6 +362,40 @@ class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
       ],
     );
   }
+}
+
+/// A dashed ring around the edit button, so it reads as a control rather
+/// than a stray glyph next to the name.
+class _DottedCirclePainter extends CustomPainter {
+  final Color color;
+
+  const _DottedCirclePainter({required this.color});
+
+  static const _dashCount = 12;
+
+  /// Share of each dash-plus-gap step taken by the dash.
+  static const _dashFraction = 0.55;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Just inside the button's splash circle, so the ripple fills the ring.
+    final rect = Rect.fromCircle(
+      center: size.center(Offset.zero),
+      radius: size.shortestSide / 2 - 4,
+    );
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..strokeCap = StrokeCap.round;
+    const step = 2 * math.pi / _dashCount;
+    for (var i = 0; i < _dashCount; i++) {
+      canvas.drawArc(rect, step * i, step * _dashFraction, false, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DottedCirclePainter oldDelegate) => oldDelegate.color != color;
 }
 
 class _SaveButtonLabel extends StatelessWidget {
