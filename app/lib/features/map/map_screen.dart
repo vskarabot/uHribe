@@ -11,7 +11,8 @@ import '../../models/elevation_bracket.dart';
 import '../../models/peak.dart';
 import '../../providers.dart';
 import '../../theme.dart';
-import '../peaks/peak_filter_chips.dart';
+import '../peaks/elevation_filter_sheet.dart';
+import '../peaks/mountain_area_filter_sheet.dart';
 import '../shell/offline_chip.dart';
 import '../shell/pill_nav_bar.dart';
 import 'peak_details_sheet.dart';
@@ -211,29 +212,37 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 children: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                    child: ShadowedField(
-                      child: TextField(
-                        controller: _searchController,
-                        focusNode: _searchFocus,
-                        textInputAction: TextInputAction.search,
-                        decoration: InputDecoration(
-                          hintText: Strings.searchHint,
-                          prefixIcon: const Icon(Icons.search, size: 20),
-                          suffixIcon: _query.isNotEmpty
-                              ? IconButton(
-                                  iconSize: 20,
-                                  icon: const Icon(Icons.clear, size: 20),
-                                  onPressed: _dismissSearch,
-                                )
-                              : null,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: ShadowedField(
+                            child: TextField(
+                              controller: _searchController,
+                              focusNode: _searchFocus,
+                              textInputAction: TextInputAction.search,
+                              decoration: InputDecoration(
+                                hintText: Strings.searchHint,
+                                prefixIcon: const Icon(Icons.search, size: 20),
+                                suffixIcon: _query.isNotEmpty
+                                    ? IconButton(
+                                        iconSize: 20,
+                                        icon: const Icon(Icons.clear, size: 20),
+                                        onPressed: _dismissSearch,
+                                      )
+                                    : null,
+                              ),
+                              onChanged: (v) => setState(() => _query = v),
+                              onSubmitted: (_) {
+                                if (matches.isNotEmpty) {
+                                  _goToSearchResult(matches.first);
+                                }
+                              },
+                            ),
+                          ),
                         ),
-                        onChanged: (v) => setState(() => _query = v),
-                        onSubmitted: (_) {
-                          if (matches.isNotEmpty) {
-                            _goToSearchResult(matches.first);
-                          }
-                        },
-                      ),
+                        const SizedBox(width: 8),
+                        const _FilterButton(),
+                      ],
                     ),
                   ),
                   if (peaksAsync.isLoading)
@@ -241,10 +250,6 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
                       child: LinearProgressIndicator(),
                     ),
-                  const Padding(
-                    padding: EdgeInsets.fromLTRB(16, 10, 16, 0),
-                    child: PeakFilterChips(),
-                  ),
                   const Align(alignment: Alignment.center, child: OfflineChip()),
                   if (_query.trim().isNotEmpty)
                     Padding(
@@ -722,6 +727,168 @@ class _CompassNeedlePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_CompassNeedlePainter oldDelegate) => false;
+}
+
+class _FilterButton extends ConsumerWidget {
+  const _FilterButton();
+
+  static const _size = 48.0;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final active = ref.watch(selectedMountainAreaProvider) != null ||
+        ref.watch(selectedElevationBracketProvider) != null;
+
+    return ShadowedField(
+      radius: _size / 2,
+      child: Material(
+        color: active
+            ? colorScheme.secondaryContainer
+            : colorScheme.surfaceContainerLowest,
+        shape: CircleBorder(
+          side: active
+              ? BorderSide(color: colorScheme.primary.withValues(alpha: 0.35))
+              : AppTheme.fieldBorder(colorScheme),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => showModalBottomSheet(
+            context: context,
+            showDragHandle: true,
+            builder: (_) => const _FiltersSheet(),
+          ),
+          child: SizedBox.square(
+            dimension: _size,
+            child: Tooltip(
+              message: Strings.filters,
+              child: Icon(
+                Icons.filter_alt_outlined,
+                color: active ? colorScheme.onSecondaryContainer : null,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FiltersSheet extends ConsumerWidget {
+  const _FiltersSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final area = ref.watch(selectedMountainAreaProvider);
+    final elevation = ref.watch(selectedElevationBracketProvider);
+
+    final divider = Divider(
+      height: 1,
+      thickness: 0.5,
+      indent: 16,
+      endIndent: 16,
+      color: colorScheme.outlineVariant,
+    );
+
+    return SafeArea(
+      top: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            child: Text(
+              Strings.filters,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: colorScheme.onSurface,
+              ),
+            ),
+          ),
+          Divider(height: 1, thickness: 0.5, color: colorScheme.outlineVariant),
+          _FilterRow(
+            icon: Icons.filter_alt_outlined,
+            title: Strings.filterByArea,
+            value: area ?? Strings.allAreas,
+            active: area != null,
+            onTap: () => showMountainAreaFilterSheet(context),
+            onClear: () => ref.read(selectedMountainAreaProvider.notifier).set(null),
+          ),
+          divider,
+          _FilterRow(
+            icon: Icons.height,
+            title: Strings.filterByElevation,
+            value: elevation?.label ?? Strings.allElevations,
+            active: elevation != null,
+            onTap: () => showElevationFilterSheet(context),
+            onClear: () =>
+                ref.read(selectedElevationBracketProvider.notifier).set(null),
+          ),
+          if (area != null || elevation != null) ...[
+            divider,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: OutlinedButton(
+                onPressed: () {
+                  ref.read(selectedMountainAreaProvider.notifier).set(null);
+                  ref.read(selectedElevationBracketProvider.notifier).set(null);
+                },
+                child: const Text(Strings.clearFilters),
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _FilterRow extends StatelessWidget {
+  const _FilterRow({
+    required this.icon,
+    required this.title,
+    required this.value,
+    required this.active,
+    required this.onTap,
+    required this.onClear,
+  });
+
+  final IconData icon;
+  final String title;
+  final String value;
+  final bool active;
+  final VoidCallback onTap;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return ListTile(
+      leading: Icon(icon, color: active ? colorScheme.primary : null),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
+      subtitle: Text(
+        value,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontWeight: active ? FontWeight.w700 : null,
+          color: active ? colorScheme.primary : colorScheme.onSurfaceVariant,
+        ),
+      ),
+      trailing: active
+          ? IconButton(
+              icon: const Icon(Icons.close, size: 18),
+              tooltip: Strings.clearFilters,
+              onPressed: onClear,
+            )
+          : const Icon(Icons.chevron_right),
+      onTap: onTap,
+    );
+  }
 }
 
 class _SearchResults extends StatelessWidget {

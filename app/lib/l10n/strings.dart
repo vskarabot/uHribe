@@ -23,6 +23,7 @@ class Strings {
   }
 
   static const searchHint = 'Išči vrhove …';
+  static const filters = 'Filtri';
   static const filterByArea = 'Gorovja';
   static const filterByElevation = 'Višina';
   static const allAreas = 'Vsa gorovja';

@@ -18,7 +18,7 @@ class AppTheme {
       BorderSide(color: colorScheme.outline.withValues(alpha: 0.5));
 
   static BorderSide _chipBorder(ColorScheme colorScheme) =>
-      BorderSide(color: colorScheme.outlineVariant);
+      BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.7));
 
   static Color _iconColor(ColorScheme colorScheme) =>
       colorScheme.onSurfaceVariant.withValues(alpha: 0.7);
@@ -131,7 +131,7 @@ class AppTheme {
                 : colorScheme.onSurfaceVariant;
           }),
         ),
-        backgroundColor: colorScheme.surfaceContainerHigh,
+        backgroundColor: colorScheme.surfaceContainerLow,
         selectedColor: colorScheme.secondaryContainer,
         checkmarkColor: colorScheme.onSecondaryContainer,
         iconTheme: IconThemeData(size: 16, color: _iconColor(colorScheme)),
