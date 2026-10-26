@@ -244,118 +244,143 @@ class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
     final colorScheme = Theme.of(context).colorScheme;
     final busy = _saveState != _SaveState.idle;
 
+    final name = _nameController.text.trim();
+    final email = widget.profile.email;
+    final hasAvatar = _avatarUrl != null && _avatarUrl!.isNotEmpty;
+    final divider = Divider(height: 1, thickness: 0.5, color: colorScheme.outlineVariant);
+
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
       child: SafeArea(
         top: false,
         child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-                child: Text(
-                  Strings.editProfile,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-              ),
-              Divider(height: 1, thickness: 0.5, color: colorScheme.outlineVariant),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Center(
-                      child: GestureDetector(
-                        onTap: _uploadingAvatar ? null : _pickAvatar,
-                        child: Stack(
-                          children: [
-                            CircleAvatar(
-                              radius: 44,
-                              backgroundImage: (_avatarUrl != null && _avatarUrl!.isNotEmpty)
-                                  ? NetworkImage(_avatarUrl!)
-                                  : null,
-                              child: (_avatarUrl == null || _avatarUrl!.isEmpty)
-                                  ? const Icon(Icons.person, size: 44)
-                                  : null,
+              Row(
+                children: [
+                  GestureDetector(
+                    onTap: _uploadingAvatar ? null : _pickAvatar,
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 24,
+                          backgroundImage: hasAvatar ? NetworkImage(_avatarUrl!) : null,
+                          child: hasAvatar ? null : const Icon(Icons.person, size: 24),
+                        ),
+                        if (_uploadingAvatar)
+                          const Positioned.fill(
+                            child: CircleAvatar(
+                              backgroundColor: Colors.black38,
+                              child: SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
-                            if (_uploadingAvatar)
-                              const Positioned.fill(
-                                child: CircleAvatar(
-                                  backgroundColor: Colors.black38,
-                                  child: SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name.isNotEmpty ? name : Strings.editProfile,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            height: 1.15,
+                          ),
+                        ),
+                        if (_region != null || email != null) ...[
+                          const SizedBox(height: 3),
+                          Text.rich(
+                            TextSpan(
+                              children: [
+                                if (_region != null)
+                                  TextSpan(
+                                    text: _region,
+                                    style: TextStyle(
+                                      color: colorScheme.primary,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
-                                ),
-                              ),
-                            Positioned(
-                              right: 0,
-                              bottom: 0,
-                              child: CircleAvatar(
-                                radius: 15,
-                                backgroundColor: colorScheme.surface,
-                                child: CircleAvatar(
-                                  radius: 13,
-                                  backgroundColor: colorScheme.primary,
-                                  child: Icon(
-                                    Icons.camera_alt,
-                                    size: 15,
-                                    color: colorScheme.onPrimary,
-                                  ),
-                                ),
-                              ),
+                                if (_region != null && email != null)
+                                  const TextSpan(text: '  |  '),
+                                if (email != null) TextSpan(text: email),
+                              ],
                             ),
-                          ],
-                        ),
-                      ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                    Center(
-                      child: TextButton(
-                        onPressed: _uploadingAvatar ? null : _pickAvatar,
-                        child: const Text(Strings.changePhoto),
-                      ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: _uploadingAvatar ? null : _pickAvatar,
+                    icon: const Icon(Icons.photo_camera_outlined),
+                    tooltip: Strings.changePhoto,
+                    style: IconButton.styleFrom(
+                      backgroundColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
                     ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: _nameController,
-                      textCapitalization: TextCapitalization.words,
-                      decoration: const InputDecoration(
-                        labelText: Strings.displayName,
-                        prefixIcon: Icon(Icons.person_outline, size: 20),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      initialValue: _region,
-                      decoration: const InputDecoration(
-                        labelText: Strings.homeRegion,
-                        prefixIcon: Icon(Icons.place_outlined, size: 20),
-                      ),
-                      borderRadius: BorderRadius.circular(AppTheme.panelRadius),
-                      items: Strings.regions
-                          .map((r) => DropdownMenuItem(value: r, child: Text(r)))
-                          .toList(),
-                      onChanged: (v) => setState(() => _region = v),
-                    ),
-                    const SizedBox(height: 20),
-                    FilledButton(
-                      onPressed: (!_dirty || busy || _uploadingAvatar) ? null : _save,
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 200),
-                        child: _SaveButtonLabel(key: ValueKey(_saveState), state: _saveState),
-                      ),
-                    ),
-                  ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              divider,
+              const SizedBox(height: 16),
+              Text(
+                Strings.editProfile,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _nameController,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  labelText: Strings.displayName,
+                  prefixIcon: Icon(Icons.person_outline, size: 20),
+                ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: _region,
+                decoration: const InputDecoration(
+                  labelText: Strings.homeRegion,
+                  prefixIcon: Icon(Icons.place_outlined, size: 20),
+                ),
+                borderRadius: BorderRadius.circular(AppTheme.panelRadius),
+                items: Strings.regions
+                    .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                    .toList(),
+                onChanged: (v) => setState(() => _region = v),
+              ),
+              const SizedBox(height: 20),
+              FilledButton(
+                onPressed: (!_dirty || busy || _uploadingAvatar) ? null : _save,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: _SaveButtonLabel(key: ValueKey(_saveState), state: _saveState),
                 ),
               ),
             ],
@@ -405,7 +430,14 @@ class _SaveButtonLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = Theme.of(context).colorScheme.onPrimary;
     return switch (state) {
-      _SaveState.idle => const Text(Strings.save),
+      _SaveState.idle => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.save_outlined, size: 18, color: color),
+          const SizedBox(width: 8),
+          const Text(Strings.save),
+        ],
+      ),
       _SaveState.saving => SizedBox(
         width: 18,
         height: 18,

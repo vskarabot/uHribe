@@ -139,7 +139,7 @@ class AppTheme {
         shape: const StadiumBorder(),
       ),
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: colorScheme.surface,
+        backgroundColor: colorScheme.surfaceContainerLowest,
         surfaceTintColor: Colors.transparent,
         dragHandleSize: const Size(56, 5),
         dragHandleColor: colorScheme.outlineVariant,
