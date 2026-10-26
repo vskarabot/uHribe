@@ -7,13 +7,6 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import '../../l10n/strings.dart';
 import '../../models/hiking_route.dart';
 
-/// A full page showing [route]'s line draped over Mapbox's 3D terrain, so the
-/// climb is visible as relief rather than just a number, plus its details
-/// (difficulty, distance, from/to), reachable via the back button/gesture.
-///
-/// Once the terrain tiles are loaded we sample the DEM along the line to work
-/// out how high the route climbs, and swing the camera around so it looks from
-/// the low end toward the high one.
 class RouteDetailScreen extends StatefulWidget {
   final HikingRoute route;
 
@@ -29,18 +22,11 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
   static const _demSourceId = 'mapbox-dem';
   static const _skyLayerId = 'sky';
 
-  /// Mapbox's global DEM. 514px tiles are what Mapbox recommends for terrain
-  /// (512 plus a 1px skirt on each side, so neighbouring tiles line up).
   static const _demTileset = 'mapbox://mapbox.mapbox-terrain-dem-v1';
 
-  /// Slovenian valleys are narrow enough that unexaggerated relief reads flat
-  /// at the zoom a whole route is framed in.
   static const _terrainExaggeration = 1.4;
   static const _pitch3d = 65.0;
 
-  /// One getElevation call is a platform-channel round trip, so sample a fixed
-  /// budget of evenly spread vertices instead of all of them — a long route
-  /// can carry several thousand.
   static const _elevationSampleBudget = 120;
 
   MapboxMap? _map;
@@ -50,8 +36,6 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
   bool _sampled = false;
   _RouteRelief? _relief;
 
-  /// Whether the DEM pass has finished, regardless of whether it produced a
-  /// reading — tells the stats strip apart "still measuring" from "no data".
   bool _reliefResolved = false;
 
   Future<void> _onMapCreated(MapboxMap map) async {
@@ -59,13 +43,8 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
     await map.scaleBar.updateSettings(ScaleBarSettings(enabled: false));
   }
 
-  /// Sources, layers and terrain all have to wait for the style: onMapCreated
-  /// fires while it's still loading, and anything added before it finishes is
-  /// dropped when the style swaps in.
   Future<void> _onStyleLoaded(StyleLoadedEventData _) async {
     final map = _map;
-    // The style URI never changes here, so this fires once; the guard is only
-    // so a repeat wouldn't throw on re-adding sources that already exist.
     if (map == null || _styleReady) return;
 
     final geometry = jsonDecode(widget.route.geojson) as Map<String, dynamic>;
@@ -87,8 +66,6 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
       sourceId: _sourceId,
       lineColor: Colors.deepOrange.toARGB32(),
       lineWidth: 5,
-      // Hillshading darkens the terrain unevenly; a white casing keeps the
-      // line readable over both sunlit and shadowed slopes.
       lineBorderColor: Colors.white.toARGB32(),
       lineBorderWidth: 1.5,
       lineCap: LineCap.ROUND,
@@ -108,9 +85,6 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
     _coordinates = _extractCoordinates(geometry);
     if (_coordinates.isEmpty) return;
 
-    // Frame the route flat first: the DEM only resolves for tiles that are
-    // actually on screen, so everything we want to sample has to be in view
-    // before the first idle.
     await _frameRoute(pitch: 0, bearing: 0);
   }
 
@@ -118,10 +92,6 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
     final map = _map;
     if (map == null || !_styleReady) return;
 
-    // Terrain stays attached either way and 2D is exaggeration 0 — a flat
-    // plane renders identically to no terrain. Detaching it instead would mean
-    // passing a JSON null, and the Android bridge only parses strings starting
-    // with '{' or '[' as JSON, so "null" would arrive as the literal string.
     await map.style.setStyleTerrain(jsonEncode({
       'source': _demSourceId,
       'exaggeration': enabled ? _terrainExaggeration : 0,
@@ -135,8 +105,6 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
     final camera = await map.cameraForCoordinatesPadding(
       _coordinates,
       CameraOptions(pitch: pitch, bearing: bearing),
-      // A pitched camera spends the top of the screen on distant terrain and
-      // sky, so the route needs to sit lower in the frame than it does flat.
       MbxEdgeInsets(
         top: pitch > 0 ? 140 : 40,
         left: 32,
@@ -149,8 +117,6 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
     await map.flyTo(camera, MapAnimationOptions(duration: 900));
   }
 
-  /// Reads the DEM along the route once the terrain tiles have settled, then
-  /// turns the camera to look up the climb.
   Future<void> _onMapIdle(MapIdleEventData _) async {
     if (_sampled || !_terrainEnabled || _coordinates.isEmpty) return;
     _sampled = true;
@@ -182,15 +148,11 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
       }
     }
 
-    // A couple of stray readings say nothing about the climb — only report a
-    // height difference when most of the route actually resolved.
     final resolved = elevations.where((e) => e != null).length;
     if (minM != null && maxM != null && resolved >= samples.length ~/ 2) {
       relief = _RouteRelief(
         minM: minM.round(),
         maxM: maxM.round(),
-        // The DEM is exaggerated for display only; the readings themselves are
-        // true metres, so nothing to undo here.
         gainM: (maxM - minM).round(),
       );
     }
@@ -207,8 +169,6 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
     await _frameRoute(pitch: _pitch3d, bearing: bearing);
   }
 
-  /// Every vertex if the route is short, otherwise an even spread of at most
-  /// [_elevationSampleBudget] of them, always including both ends.
   List<Point> _sampleTargets() {
     if (_coordinates.length <= _elevationSampleBudget) return _coordinates;
 
@@ -316,8 +276,6 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
           _RouteSummaryPanel(
             route: route,
             relief: relief,
-            // Only promise a reading that's actually coming: in 2D we never
-            // sample, so an absent relief there is simply absent, not pending.
             reliefPending: relief == null && _terrainEnabled && !_reliefResolved,
           ),
         ],
@@ -326,8 +284,6 @@ class _RouteDetailScreenState extends State<RouteDetailScreen> {
   }
 }
 
-/// The strip under the map: the three numbers that describe the walk as
-/// equal-weight tiles, then the endpoints and difficulty on one line.
 class _RouteSummaryPanel extends StatelessWidget {
   final HikingRoute route;
   final _RouteRelief? relief;
@@ -363,8 +319,6 @@ class _RouteSummaryPanel extends StatelessWidget {
         _StatTile(
           icon: Icons.landscape_outlined,
           label: Strings.routeHighestPoint,
-          // The low end isn't worth a slot of its own: it's the high point
-          // minus the gain shown next to it.
           value: relief == null ? null : '${relief!.maxM}',
           unit: 'm',
         ),
@@ -428,9 +382,6 @@ class _RouteSummaryPanel extends StatelessWidget {
   }
 }
 
-/// One number under the map. [value] null means the DEM hasn't answered yet,
-/// which shows a dash so the strip keeps its height instead of jumping when
-/// the reading lands.
 class _StatTile extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -510,8 +461,6 @@ class _StatTile extends StatelessWidget {
   }
 }
 
-/// Where the route starts and ends, as one "A → B" line. Each end gets half
-/// the width so a long name can't squeeze the other out entirely.
 class _Endpoints extends StatelessWidget {
   final HikingRoute route;
 
@@ -584,7 +533,6 @@ class _DifficultyPill extends StatelessWidget {
   }
 }
 
-/// How high the route's terrain gets, read off the DEM.
 class _RouteRelief {
   final int minM;
   final int maxM;

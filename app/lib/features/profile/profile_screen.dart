@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -23,11 +25,14 @@ class ProfileScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text(Strings.navProfile),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: Strings.logout,
+          TextButton(
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.primary,
+            ),
             onPressed: () => ref.read(authRepositoryProvider).signOut(),
+            child: const Text(Strings.logout),
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: RefreshIndicator(
@@ -71,27 +76,86 @@ class ProfileScreen extends ConsumerWidget {
   }
 }
 
-class _ProfileHeader extends ConsumerStatefulWidget {
+class _ProfileHeader extends StatelessWidget {
   final Profile profile;
 
   const _ProfileHeader({required this.profile});
 
   @override
-  ConsumerState<_ProfileHeader> createState() => _ProfileHeaderState();
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        CircleAvatar(
+          radius: 32,
+          backgroundImage: (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty)
+              ? NetworkImage(profile.avatarUrl!)
+              : null,
+          child: (profile.avatarUrl == null || profile.avatarUrl!.isEmpty)
+              ? const Icon(Icons.person, size: 32)
+              : null,
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                profile.displayName?.isNotEmpty == true
+                    ? profile.displayName!
+                    : (profile.email ?? ''),
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+              ),
+              if (profile.homeRegion != null && profile.homeRegion!.isNotEmpty)
+                Text(profile.homeRegion!),
+            ],
+          ),
+        ),
+        CustomPaint(
+          foregroundPainter: _DottedCirclePainter(
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
+          ),
+          child: IconButton(
+            icon: Icon(Icons.edit_outlined, color: Theme.of(context).colorScheme.primary),
+            tooltip: Strings.editProfile,
+            onPressed: () => showModalBottomSheet(
+              context: context,
+              showDragHandle: true,
+              isScrollControlled: true,
+              builder: (_) => _EditProfileSheet(profile: profile),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
-class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
-  bool _editing = false;
+class _EditProfileSheet extends ConsumerStatefulWidget {
+  final Profile profile;
+
+  const _EditProfileSheet({required this.profile});
+
+  @override
+  ConsumerState<_EditProfileSheet> createState() => _EditProfileSheetState();
+}
+
+enum _SaveState { idle, saving, saved }
+
+class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
+  static const _savedHold = Duration(milliseconds: 900);
+
   bool _uploadingAvatar = false;
-  late final _nameController = TextEditingController(text: widget.profile.displayName ?? '');
-  String? _region;
-  String? _avatarUrl;
+  _SaveState _saveState = _SaveState.idle;
+  late final _nameController = TextEditingController(
+    text: widget.profile.displayName ?? '',
+  );
+  late String? _region = widget.profile.homeRegion;
+  late String? _avatarUrl = widget.profile.avatarUrl;
 
   @override
   void initState() {
     super.initState();
-    _region = widget.profile.homeRegion;
-    _avatarUrl = widget.profile.avatarUrl;
+    _nameController.addListener(() => setState(() {}));
   }
 
   @override
@@ -100,9 +164,17 @@ class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
     super.dispose();
   }
 
+  bool get _dirty {
+    final profile = widget.profile;
+    return _nameController.text.trim() != (profile.displayName ?? '') ||
+        (_region ?? '') != (profile.homeRegion ?? '') ||
+        (_avatarUrl ?? '') != (profile.avatarUrl ?? '');
+  }
+
   Future<void> _pickAvatar() async {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
+      showDragHandle: true,
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -138,166 +210,261 @@ class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
       final url = await ref.read(profileRepositoryProvider).uploadAvatar(bytes, ext);
       if (mounted) setState(() => _avatarUrl = url);
     } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text(Strings.avatarUploadError)));
-      }
+      if (mounted) _showSnackBar(context, Strings.avatarUploadError);
     } finally {
       if (mounted) setState(() => _uploadingAvatar = false);
     }
   }
 
   Future<void> _save() async {
-    await ref
-        .read(profileRepositoryProvider)
-        .update(
-          displayName: _nameController.text.trim(),
-          avatarUrl: _avatarUrl ?? '',
-          homeRegion: _region ?? '',
-        );
-    ref.invalidate(myProfileProvider);
-    if (mounted) {
-      setState(() => _editing = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text(Strings.profileSaved)));
+    setState(() => _saveState = _SaveState.saving);
+    try {
+      await ref
+          .read(profileRepositoryProvider)
+          .update(
+            displayName: _nameController.text.trim(),
+            avatarUrl: _avatarUrl ?? '',
+            homeRegion: _region ?? '',
+          );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _saveState = _SaveState.idle);
+      _showSnackBar(context, Strings.profileSaveError);
+      return;
     }
+    ref.invalidate(myProfileProvider);
+    if (!mounted) return;
+    setState(() => _saveState = _SaveState.saved);
+    await Future<void>.delayed(_savedHold);
+    if (mounted) Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    final profile = widget.profile;
+    final colorScheme = Theme.of(context).colorScheme;
+    final busy = _saveState != _SaveState.idle;
 
-    if (!_editing) {
-      return Row(
-        children: [
-          CircleAvatar(
-            radius: 32,
-            backgroundImage: (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty)
-                ? NetworkImage(profile.avatarUrl!)
-                : null,
-            child: (profile.avatarUrl == null || profile.avatarUrl!.isEmpty)
-                ? const Icon(Icons.person, size: 32)
-                : null,
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  profile.displayName?.isNotEmpty == true
-                      ? profile.displayName!
-                      : (profile.email ?? ''),
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-                ),
-                if (profile.homeRegion != null && profile.homeRegion!.isNotEmpty)
-                  Text(profile.homeRegion!),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            tooltip: Strings.editProfile,
-            onPressed: () => setState(() => _editing = true),
-          ),
-        ],
-      );
-    }
+    final name = _nameController.text.trim();
+    final email = widget.profile.email;
+    final hasAvatar = _avatarUrl != null && _avatarUrl!.isNotEmpty;
+    final divider = Divider(height: 1, thickness: 0.5, color: colorScheme.outlineVariant);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Center(
-          child: GestureDetector(
-            onTap: _uploadingAvatar ? null : _pickAvatar,
-            child: Stack(
-              children: [
-                CircleAvatar(
-                  radius: 40,
-                  backgroundImage: (_avatarUrl != null && _avatarUrl!.isNotEmpty)
-                      ? NetworkImage(_avatarUrl!)
-                      : null,
-                  child: (_avatarUrl == null || _avatarUrl!.isEmpty)
-                      ? const Icon(Icons.person, size: 40)
-                      : null,
-                ),
-                if (_uploadingAvatar)
-                  const Positioned.fill(
-                    child: CircleAvatar(
-                      backgroundColor: Colors.black38,
-                      child: SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      ),
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  GestureDetector(
+                    onTap: _uploadingAvatar ? null : _pickAvatar,
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 24,
+                          backgroundImage: hasAvatar ? NetworkImage(_avatarUrl!) : null,
+                          child: hasAvatar ? null : const Icon(Icons.person, size: 24),
+                        ),
+                        if (_uploadingAvatar)
+                          const Positioned.fill(
+                            child: CircleAvatar(
+                              backgroundColor: Colors.black38,
+                              child: SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: CircleAvatar(
-                    radius: 14,
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    child: Icon(
-                      Icons.camera_alt,
-                      size: 16,
-                      color: Theme.of(context).colorScheme.onPrimary,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name.isNotEmpty ? name : Strings.editProfile,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            height: 1.15,
+                          ),
+                        ),
+                        if (_region != null || email != null) ...[
+                          const SizedBox(height: 3),
+                          Text.rich(
+                            TextSpan(
+                              children: [
+                                if (_region != null)
+                                  TextSpan(
+                                    text: _region,
+                                    style: TextStyle(
+                                      color: colorScheme.primary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                if (_region != null && email != null)
+                                  const TextSpan(text: '  |  '),
+                                if (email != null) TextSpan(text: email),
+                              ],
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        Center(
-          child: TextButton(
-            onPressed: _uploadingAvatar ? null : _pickAvatar,
-            child: const Text(Strings.changePhoto),
-          ),
-        ),
-        const SizedBox(height: 4),
-        ShadowedField(
-          child: TextField(
-            controller: _nameController,
-            decoration: const InputDecoration(labelText: Strings.displayName),
-          ),
-        ),
-        const SizedBox(height: 12),
-        ShadowedField(
-          child: DropdownButtonFormField<String>(
-            initialValue: _region,
-            decoration: const InputDecoration(labelText: Strings.homeRegion),
-            items: Strings.regions.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
-            onChanged: (v) => setState(() => _region = v),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () => setState(() => _editing = false),
-                child: const Text(Strings.cancel),
+                  const SizedBox(width: 8),
+                  IconButton(
+                    onPressed: _uploadingAvatar ? null : _pickAvatar,
+                    icon: const Icon(Icons.photo_camera_outlined),
+                    tooltip: Strings.changePhoto,
+                    style: IconButton.styleFrom(
+                      backgroundColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: FilledButton(onPressed: _save, child: const Text(Strings.save)),
-            ),
-          ],
+              const SizedBox(height: 16),
+              divider,
+              const SizedBox(height: 16),
+              Text(
+                Strings.editProfile,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _nameController,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  labelText: Strings.displayName,
+                  prefixIcon: Icon(Icons.person_outline, size: 20),
+                ),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: _region,
+                decoration: const InputDecoration(
+                  labelText: Strings.homeRegion,
+                  prefixIcon: Icon(Icons.place_outlined, size: 20),
+                ),
+                borderRadius: BorderRadius.circular(AppTheme.panelRadius),
+                items: Strings.regions
+                    .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                    .toList(),
+                onChanged: (v) => setState(() => _region = v),
+              ),
+              const SizedBox(height: 20),
+              FilledButton(
+                onPressed: (!_dirty || busy || _uploadingAvatar) ? null : _save,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: _SaveButtonLabel(key: ValueKey(_saveState), state: _saveState),
+                ),
+              ),
+            ],
+          ),
         ),
-      ],
+      ),
     );
   }
 }
 
-/// The numbers above the visit list: counters in a grid, then the handful of
-/// stats that name a peak and a date rather than a count.
-///
-/// The named ones only appear once there is something to name — on an empty
-/// profile they would just be three rows of dashes.
+class _DottedCirclePainter extends CustomPainter {
+  final Color color;
+
+  const _DottedCirclePainter({required this.color});
+
+  static const _dashCount = 12;
+
+  static const _dashFraction = 0.55;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromCircle(
+      center: size.center(Offset.zero),
+      radius: size.shortestSide / 2 - 4,
+    );
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..strokeCap = StrokeCap.round;
+    const step = 2 * math.pi / _dashCount;
+    for (var i = 0; i < _dashCount; i++) {
+      canvas.drawArc(rect, step * i, step * _dashFraction, false, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DottedCirclePainter oldDelegate) => oldDelegate.color != color;
+}
+
+class _SaveButtonLabel extends StatelessWidget {
+  final _SaveState state;
+
+  const _SaveButtonLabel({super.key, required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.onPrimary;
+    return switch (state) {
+      _SaveState.idle => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.save_outlined, size: 18, color: color),
+          const SizedBox(width: 8),
+          const Text(Strings.save),
+        ],
+      ),
+      _SaveState.saving => SizedBox(
+        width: 18,
+        height: 18,
+        child: CircularProgressIndicator(strokeWidth: 2, color: color),
+      ),
+      _SaveState.saved => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.check, size: 18, color: color),
+          const SizedBox(width: 8),
+          Text(Strings.profileSaved, style: TextStyle(color: color)),
+        ],
+      ),
+    };
+  }
+}
+
+void _showSnackBar(BuildContext context, String message) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(message),
+      behavior: SnackBarBehavior.floating,
+      margin: EdgeInsets.fromLTRB(16, 0, 16, MediaQuery.paddingOf(context).bottom + 16),
+    ),
+  );
+}
+
 class _StatsSection extends StatelessWidget {
   final Stats stats;
 
@@ -323,7 +490,6 @@ class _StatsSection extends StatelessWidget {
         LayoutBuilder(
           builder: (context, constraints) {
             const spacing = 12.0;
-            // Four counters: two rows of two on a phone, one row on a tablet.
             final columns = constraints.maxWidth >= 640 ? 4 : 2;
             final width = (constraints.maxWidth - spacing * (columns - 1)) / columns;
             return Wrap(
@@ -367,7 +533,6 @@ class _StatsSection extends StatelessWidget {
   }
 }
 
-/// `12345` → `12.345`, the Slovenian thousands separator.
 String _groupThousands(int value) {
   final digits = value.abs().toString();
   final buffer = StringBuffer(value < 0 ? '-' : '');
@@ -378,7 +543,6 @@ String _groupThousands(int value) {
   return buffer.toString();
 }
 
-/// `d. m. yyyy`, as dates are written in Slovenian.
 String _formatDate(DateTime date) => '${date.day}. ${date.month}. ${date.year}';
 
 class _StatCard extends StatelessWidget {
@@ -415,7 +579,6 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-/// A stat whose answer is a name — the peak, and when.
 class _StatDetailTile extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -466,12 +629,6 @@ class _StatDetailTile extends StatelessWidget {
   }
 }
 
-/// Check-ins the server refused for good.
-///
-/// Only these. A check-in merely waiting for signal needs no UI — it shows as
-/// pending on the peak itself and syncs on its own. A refused one is the one
-/// case nothing else will resolve, so it gets somewhere to be seen and thrown
-/// away. Normally this renders nothing at all.
 class _RejectedCheckInsSection extends ConsumerWidget {
   const _RejectedCheckInsSection();
 
@@ -506,14 +663,6 @@ class _RejectedCheckInsSection extends ConsumerWidget {
   }
 }
 
-/// Renders the visit list with an optimistic local removal step.
-///
-/// The visit list itself only shrinks once [myVisitsProvider] refetches,
-/// which is async. If a [Dismissible] were bound directly to that provider,
-/// a rebuild could still show the just-dismissed item (same key) before the
-/// refetch completes, which crashes with "A dismissed Dismissible widget is
-/// still part of the tree". Hiding the id locally the instant deletion is
-/// confirmed avoids that window entirely.
 class _VisitsSection extends ConsumerStatefulWidget {
   final List<Visit> visits;
 
@@ -534,9 +683,7 @@ class _VisitsSectionState extends ConsumerState<_VisitsSection> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _hiddenIds.remove(visit.id));
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text(Strings.visitDeleteError)));
+      _showSnackBar(context, Strings.visitDeleteError);
     }
   }
 

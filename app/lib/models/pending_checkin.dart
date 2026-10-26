@@ -1,30 +1,15 @@
-/// A check-in captured on a summit that hasn't reached the server yet.
-///
-/// Everything needed to verify it later is captured at the moment the user
-/// taps, because by the time this syncs they may be at home, hours later and
-/// kilometres away.
-///
-/// [clientId] is generated once, on the device. It's what makes replaying a
-/// sync safe: if the insert succeeded but the response was lost, the server
-/// recognises the id and returns the original row instead of duplicating it.
 class PendingCheckIn {
   final String clientId;
   final int peakId;
 
-  /// Denormalised so the pending list can be rendered offline, without
-  /// needing the peak to still be in the local cache.
   final String peakName;
 
   final double lat;
   final double lon;
   final double? accuracyM;
 
-  /// Distance to the summit as the device measured it. Advisory only — the
-  /// server recomputes this from [lat]/[lon] and decides for itself.
   final double? distanceM;
 
-  /// The OS's own timestamp for the fix, not `DateTime.now()`. Sent along so
-  /// the server can see when the user was actually standing there.
   final DateTime deviceTime;
 
   final DateTime visitedOn;
@@ -34,9 +19,6 @@ class PendingCheckIn {
   final int attempts;
   final String? lastError;
 
-  /// The server refused this one for a reason retrying won't fix (too far
-  /// from the summit, unknown peak). It stays queued and visible so the user
-  /// can decide what to do with it instead of it disappearing quietly.
   final bool rejected;
 
   const PendingCheckIn({
@@ -95,9 +77,6 @@ class PendingCheckIn {
     );
   }
 
-  /// The arguments for `check_in_peak()`. `visited_on` is the user's *local*
-  /// calendar date — a 22:00 summit in Slovenia belongs to that day, not to
-  /// whatever day it is in UTC.
   Map<String, dynamic> toRpcArgs() => {
         'p_peak_id': peakId,
         'p_lat': lat,
@@ -110,7 +89,6 @@ class PendingCheckIn {
         'p_client_id': clientId,
       };
 
-  /// A date with no time and no timezone, the way Postgres wants a `date`.
   static String dateOnly(DateTime date) =>
       '${date.year.toString().padLeft(4, '0')}-'
       '${date.month.toString().padLeft(2, '0')}-'

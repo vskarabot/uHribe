@@ -7,10 +7,8 @@ class Visit {
   final String? notes;
   final DateTime createdAt;
 
-  /// How far from the summit the check-in was taken, in metres.
   final double? distanceM;
 
-  // Present only when the visit was loaded via a join with peaks.
   final String? peakName;
   final int? peakElevationM;
 

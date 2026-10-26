@@ -8,8 +8,6 @@ import 'features/shell/home_shell.dart';
 import 'models/hiking_route.dart';
 import 'providers.dart';
 
-/// Bridges Riverpod's [sessionProvider] to go_router's [Listenable]-based
-/// refresh mechanism, so the router re-evaluates `redirect` on sign-in/out.
 class _RouterRefreshNotifier extends ChangeNotifier {
   _RouterRefreshNotifier(Ref ref) {
     ref.listen(sessionProvider, (_, _) => notifyListeners());

@@ -4,12 +4,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/peak.dart';
 import 'local/app_database.dart';
 
-/// The peaks the user downloaded for a hike, cached on the device.
-///
-/// Small data — name, coordinates, elevation, radius — so a day's worth of
-/// peaks is a few kilobytes. It's what lets the summit screen work with the
-/// phone in airplane mode: GNSS gives the position without a network, and
-/// this gives the target to compare it against.
 class OfflinePeaksRepository {
   final SupabaseClient _client;
 
@@ -17,8 +11,6 @@ class OfflinePeaksRepository {
 
   static const _table = 'offline_peaks';
 
-  /// Fetches [peakIds] from Supabase and stores them locally. Needs a network
-  /// — this is the "before you leave the valley" step.
   Future<void> download(List<int> peakIds) async {
     if (peakIds.isEmpty) return;
 

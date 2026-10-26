@@ -3,8 +3,6 @@ import 'dart:math' as math;
 
 import 'package:geolocator/geolocator.dart';
 
-/// Why a position couldn't be taken. Mapped to user-facing text by the caller,
-/// which already has the strings for the map's locate button.
 enum LocationFailure {
   servicesDisabled,
   permissionDenied,
@@ -20,19 +18,13 @@ class LocationException implements Exception {
   String toString() => 'LocationException(${failure.name})';
 }
 
-/// A settled position, agreed on by several consecutive fixes.
 class SummitFix {
   final double lat;
   final double lon;
   final double? accuracyM;
 
-  /// The OS's timestamp for the fix, not the app's clock. This is what gets
-  /// sent to the server, so an offline check-in can still say *when* the user
-  /// was standing there rather than when the phone found signal again.
   final DateTime timestamp;
 
-  /// Android reports when a fix came from a mock provider. iOS has no
-  /// equivalent, so false here means "not detected", not "genuine".
   final bool isMocked;
 
   const SummitFix({
@@ -44,24 +36,12 @@ class SummitFix {
   });
 }
 
-/// Takes GNSS fixes. Works with no network: the receiver computes the position
-/// from the satellites themselves. A cold start is slower without the
-/// network's assistance data, which is what [dwell] absorbs.
 class LocationService {
-  /// How long to keep sampling before settling for what we have.
   static const _dwell = Duration(seconds: 12);
 
-  /// Stop early once the fix is this good and has been confirmed a few times
-  /// — no reason to make someone stand in the wind for the full dwell.
   static const _goodAccuracyM = 15.0;
   static const _minSamples = 4;
 
-  /// Takes a short burst of fixes rather than one.
-  ///
-  /// A single reading on a summit can be tens of metres out; a handful,
-  /// filtered down to the ones that agree and then reduced to their median,
-  /// is both more accurate and harder to forge convincingly than one
-  /// synthetic coordinate.
   Future<SummitFix> acquireFix({Duration dwell = _dwell}) async {
     await ensurePermission();
 
@@ -101,8 +81,6 @@ class LocationService {
     }
 
     if (samples.isEmpty) {
-      // The stream gave us nothing in time — fall back to a single fix, which
-      // may still come back from the OS's last known position.
       try {
         final single = await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(accuracy: LocationAccuracy.best),
@@ -116,9 +94,6 @@ class LocationService {
     return _consensus(samples);
   }
 
-  /// Reduces the burst to one position: keep the samples whose accuracy is in
-  /// the same league as the best one, then take their component-wise median so
-  /// a single wild reading can't drag the result.
   SummitFix _consensus(List<Position> samples) {
     final ranked = [...samples]..sort((a, b) => a.accuracy.compareTo(b.accuracy));
     final best = ranked.first.accuracy;
@@ -131,7 +106,6 @@ class LocationService {
       lon: _median(use.map((s) => s.longitude).toList()),
       accuracyM: best > 0 ? best : null,
       timestamp: ranked.first.timestamp,
-      // One mocked sample taints the burst; a real receiver doesn't mix them.
       isMocked: samples.any((s) => s.isMocked),
     );
   }
@@ -143,8 +117,6 @@ class LocationService {
     return (values[mid - 1] + values[mid]) / 2;
   }
 
-  /// Asks for location access if needed, throwing [LocationException] with the
-  /// specific reason when it isn't available.
   Future<void> ensurePermission() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
       throw const LocationException(LocationFailure.servicesDisabled);
@@ -162,7 +134,6 @@ class LocationService {
     }
   }
 
-  /// Straight-line ground distance in metres.
   static double distanceM(double lat1, double lon1, double lat2, double lon2) =>
       Geolocator.distanceBetween(lat1, lon1, lat2, lon2);
 }

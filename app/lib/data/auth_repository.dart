@@ -1,7 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Thin wrapper around Supabase auth. Sign-up is intentionally not exposed:
-/// accounts are created by hand in the Supabase dashboard.
 class AuthRepository {
   final SupabaseClient _client;
 

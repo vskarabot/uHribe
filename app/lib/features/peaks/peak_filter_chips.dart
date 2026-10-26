@@ -6,12 +6,6 @@ import '../../providers.dart';
 import 'elevation_filter_sheet.dart';
 import 'mountain_area_filter_sheet.dart';
 
-/// The area and elevation filters, as a pair of chips.
-///
-/// Shared by the peak list and the map rather than built once per screen:
-/// both read the same two providers, so a filter offered on one and not the
-/// other — or cleared differently there — is the list and the map disagreeing
-/// about what the user asked for.
 class PeakFilterChips extends ConsumerWidget {
   const PeakFilterChips({super.key});
 
@@ -48,12 +42,6 @@ class PeakFilterChips extends ConsumerWidget {
   }
 }
 
-/// One filter, in either of two clearly different states.
-///
-/// Both used to be the same neutral chip whose only tell was the label text,
-/// so an applied filter looked exactly like an unapplied one and a shortened
-/// list had no visible cause. Applied now means filled, bolder, and carrying
-/// its own × — the way out has to be as visible as the way in.
 class PeakFilterChip extends StatelessWidget {
   const PeakFilterChip({
     super.key,
@@ -70,10 +58,6 @@ class PeakFilterChip extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onClear;
 
-  /// Area names run long enough ("Goriško, Notranjsko in Snežniško hribovje")
-  /// to push a chip past the screen edge, which on the map means a control
-  /// half off-screen over the terrain. Truncate instead; the sheet and the
-  /// tooltip both still show it in full.
   static const _maxLabelWidth = 200.0;
 
   @override
@@ -98,8 +82,6 @@ class PeakFilterChip extends StatelessWidget {
       avatar: Icon(icon, size: 16, color: colorScheme.onSecondaryContainer),
       label: labelWidget,
       selected: true,
-      // The avatar already says which filter this is; a checkmark on top of
-      // it just crowds the chip.
       showCheckmark: false,
       labelStyle: TextStyle(
         fontWeight: FontWeight.w600,

@@ -5,9 +5,6 @@ class Profile {
   final String? avatarUrl;
   final String? homeRegion;
 
-  /// Whether the user opted into showing their location on the map. Stored
-  /// server-side so a fresh install/login can show the puck without asking
-  /// again; the OS permission still decides whether it actually can.
   final bool locationEnabled;
 
   const Profile({

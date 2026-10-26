@@ -11,8 +11,6 @@ import 'bottom_fade_scrim.dart';
 import 'offline_chip.dart';
 import 'pill_nav_bar.dart';
 
-/// Bottom-navigation shell hosting the four main tabs. Each tab keeps its
-/// state alive via [IndexedStack] while switching.
 class HomeShell extends ConsumerStatefulWidget {
   const HomeShell({super.key});
 
@@ -34,29 +32,18 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
   @override
   Widget build(BuildContext context) {
-    // A peak was selected elsewhere (e.g. the peak list) — switch to the map
-    // tab so it can center on it; the map screen itself does the flying.
     ref.listen(peakFocusProvider, (_, next) {
       if (next != null) setState(() => _index = _mapTabIndex);
     });
 
-    // With the keyboard up the screen is already half gone, and whatever the
-    // typing produced — the map's search results — is what's left. Frosting
-    // the bottom of that is the one moment the scrim costs more than it buys.
     final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
 
     return Scaffold(
       extendBody: true,
-      // Each tab decides for itself what the keyboard does to it — the map
-      // wants to be left at full size, a form wants to be pushed up — and it
-      // can't if the shell has already shrunk the body they all sit in.
       resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
           IndexedStack(index: _index, children: _tabs),
-          // Drawn over the tab but under the nav bar (Scaffold paints
-          // bottomNavigationBar last), so content dissolves into the bottom of
-          // the screen on its way under the floating bar.
           if (!keyboardOpen)
             Positioned(
               left: 0,
@@ -64,14 +51,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
               bottom: 0,
               child: BottomFadeScrim(height: PillNavBar.centerOffset(context)),
             ),
-          // Floats over the content rather than taking a row, so it doesn't
-          // shove the map down every time signal drops. Nothing on it is
-          // tappable, so it lets touches through to whatever is underneath.
-          //
-          // The map tab is the exception: its own search field and filters
-          // already own the top of the screen, so a chip pinned there lands
-          // on top of them. That tab draws the chip itself, under its
-          // filters — see MapScreen.
           if (_index != _mapTabIndex)
             const Positioned(
               top: 0,

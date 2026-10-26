@@ -3,7 +3,6 @@ class Stats {
   final int totalVisits;
   final int visitsThisYear;
 
-  /// Summed elevation of every *distinct* peak visited, in metres.
   final int totalElevationM;
 
   final String? highestPeakName;

@@ -12,14 +12,9 @@ import 'theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // An empty or malformed .env throws out of load(), and a throw this early —
-  // before runApp — leaves no widget tree to surface it in, so the app dies to
-  // a blank screen and a console trace. Swallowed so the check below can say
-  // what is actually wrong: with nothing loaded, every key reads as missing.
   try {
     await dotenv.load();
   } catch (_) {
-    // Reported by [Config.missingKeys], not here.
   }
 
   final missingKeys = Config.missingKeys;
@@ -38,12 +33,6 @@ Future<void> main() async {
   runApp(const ProviderScope(child: UhribeApp()));
 }
 
-/// Shown in place of the app when `.env` is missing keys.
-///
-/// Deliberately depends on nothing — no theme, no providers, no Supabase —
-/// because the reason we are here is that the configuration those need never
-/// arrived. Plain English rather than [Strings]: whoever sees this is setting
-/// the project up from a clone, not using the app.
 class _MisconfiguredApp extends StatelessWidget {
   const _MisconfiguredApp({required this.missingKeys});
 
@@ -98,13 +87,6 @@ class UhribeApp extends ConsumerWidget {
       darkTheme: AppTheme.dark,
       themeMode: themeMode,
       routerConfig: router,
-      // Tapping away from a field gives up focus, app-wide. Without it a
-      // keyboard raised by one field stays up over everything the user taps
-      // next, and on the map that keyboard is most of the screen.
-      //
-      // Translucent rather than opaque: this sits under the whole app, so it
-      // has to notice taps that no one else claimed without taking them away
-      // from the buttons and fields that did.
       builder: (context, child) => GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
