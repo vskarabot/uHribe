@@ -16,6 +16,7 @@ import '../peaks/mountain_area_filter_sheet.dart';
 import '../shell/offline_chip.dart';
 import '../shell/pill_nav_bar.dart';
 import 'peak_details_sheet.dart';
+import 'peak_markers.dart';
 
 final _sloveniaCenter = Point(coordinates: Position(14.9955, 46.1512));
 
@@ -41,7 +42,10 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   static const _clusterLayerId = 'clusters';
   static const _clusterCountLayerId = 'cluster-count';
   static const _unclusteredLayerId = 'unclustered-point';
-  static const _unclusteredIconLayerId = 'unclustered-point-icon';
+  static const _unclusteredFilter = <Object>[
+    '!',
+    ['has', 'point_count'],
+  ];
 
   MapboxMap? _map;
   bool _styleReady = false;
@@ -395,35 +399,12 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       textIgnorePlacement: true,
     ));
 
-    await map.style.addLayer(CircleLayer(
+    await hideStylePeakLabels(map.style);
+    await addPeakMarkerImages(map.style);
+    await map.style.addLayer(peakMarkerLayer(
       id: _unclusteredLayerId,
       sourceId: _sourceId,
-      filter: [
-        '!',
-        ['has', 'point_count'],
-      ],
-      circleColorExpression: [
-        'case',
-        ['get', 'visited'],
-        '#2F6B4F',
-        '#E07A2C',
-      ],
-      circleRadius: 13,
-      circleStrokeWidth: 1.5,
-      circleStrokeColor: Colors.white.toARGB32(),
-    ));
-
-    await map.style.addLayer(SymbolLayer(
-      id: _unclusteredIconLayerId,
-      sourceId: _sourceId,
-      filter: [
-        '!',
-        ['has', 'point_count'],
-      ],
-      iconImage: 'mountain',
-      iconSize: 0.55,
-      iconAllowOverlap: true,
-      iconIgnorePlacement: true,
+      filter: _unclusteredFilter,
     ));
 
     if (!_interactionsAdded) _addInteractions(map);
@@ -488,6 +469,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                 'properties': {
                   'peakId': p.id,
                   'name': p.name,
+                  'ele': ?p.elevationM,
                   'visited': visitedIds.contains(p.id),
                 },
                 'geometry': {
