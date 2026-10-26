@@ -76,26 +76,81 @@ class ProfileScreen extends ConsumerWidget {
   }
 }
 
-class _ProfileHeader extends ConsumerStatefulWidget {
+class _ProfileHeader extends StatelessWidget {
   final Profile profile;
 
   const _ProfileHeader({required this.profile});
 
   @override
-  ConsumerState<_ProfileHeader> createState() => _ProfileHeaderState();
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        CircleAvatar(
+          radius: 32,
+          backgroundImage: (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty)
+              ? NetworkImage(profile.avatarUrl!)
+              : null,
+          child: (profile.avatarUrl == null || profile.avatarUrl!.isEmpty)
+              ? const Icon(Icons.person, size: 32)
+              : null,
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                profile.displayName?.isNotEmpty == true
+                    ? profile.displayName!
+                    : (profile.email ?? ''),
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+              ),
+              if (profile.homeRegion != null && profile.homeRegion!.isNotEmpty)
+                Text(profile.homeRegion!),
+            ],
+          ),
+        ),
+        CustomPaint(
+          foregroundPainter: _DottedCirclePainter(
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
+          ),
+          child: IconButton(
+            icon: Icon(Icons.edit_outlined, color: Theme.of(context).colorScheme.primary),
+            tooltip: Strings.editProfile,
+            onPressed: () => showModalBottomSheet(
+              context: context,
+              showDragHandle: true,
+              isScrollControlled: true,
+              builder: (_) => _EditProfileSheet(profile: profile),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _EditProfileSheet extends ConsumerStatefulWidget {
+  final Profile profile;
+
+  const _EditProfileSheet({required this.profile});
+
+  @override
+  ConsumerState<_EditProfileSheet> createState() => _EditProfileSheetState();
 }
 
 enum _SaveState { idle, saving, saved }
 
-class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
+class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
   static const _savedHold = Duration(milliseconds: 900);
 
-  bool _editing = false;
   bool _uploadingAvatar = false;
   _SaveState _saveState = _SaveState.idle;
-  final _nameController = TextEditingController();
-  String? _region;
-  String? _avatarUrl;
+  late final _nameController = TextEditingController(
+    text: widget.profile.displayName ?? '',
+  );
+  late String? _region = widget.profile.homeRegion;
+  late String? _avatarUrl = widget.profile.avatarUrl;
 
   @override
   void initState() {
@@ -116,20 +171,10 @@ class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
         (_avatarUrl ?? '') != (profile.avatarUrl ?? '');
   }
 
-  void _startEditing() {
-    final profile = widget.profile;
-    setState(() {
-      _nameController.text = profile.displayName ?? '';
-      _region = profile.homeRegion;
-      _avatarUrl = profile.avatarUrl;
-      _saveState = _SaveState.idle;
-      _editing = true;
-    });
-  }
-
   Future<void> _pickAvatar() async {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
+      showDragHandle: true,
       builder: (context) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -191,158 +236,132 @@ class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
     if (!mounted) return;
     setState(() => _saveState = _SaveState.saved);
     await Future<void>.delayed(_savedHold);
-    if (mounted) setState(() => _editing = false);
+    if (mounted) Navigator.of(context).pop();
   }
 
   @override
   Widget build(BuildContext context) {
-    final profile = widget.profile;
-
-    if (!_editing) {
-      return Row(
-        children: [
-          CircleAvatar(
-            radius: 32,
-            backgroundImage: (profile.avatarUrl != null && profile.avatarUrl!.isNotEmpty)
-                ? NetworkImage(profile.avatarUrl!)
-                : null,
-            child: (profile.avatarUrl == null || profile.avatarUrl!.isEmpty)
-                ? const Icon(Icons.person, size: 32)
-                : null,
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  profile.displayName?.isNotEmpty == true
-                      ? profile.displayName!
-                      : (profile.email ?? ''),
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-                ),
-                if (profile.homeRegion != null && profile.homeRegion!.isNotEmpty)
-                  Text(profile.homeRegion!),
-              ],
-            ),
-          ),
-          CustomPaint(
-            foregroundPainter: _DottedCirclePainter(
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
-            ),
-            child: IconButton(
-              icon: Icon(Icons.edit_outlined, color: Theme.of(context).colorScheme.primary),
-              tooltip: Strings.editProfile,
-              onPressed: _startEditing,
-            ),
-          ),
-        ],
-      );
-    }
-
+    final colorScheme = Theme.of(context).colorScheme;
     final busy = _saveState != _SaveState.idle;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                Strings.editProfile,
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-              ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.close),
-              tooltip: Strings.cancel,
-              onPressed: busy ? null : () => setState(() => _editing = false),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Center(
-          child: GestureDetector(
-            onTap: _uploadingAvatar ? null : _pickAvatar,
-            child: Stack(
-              children: [
-                CircleAvatar(
-                  radius: 40,
-                  backgroundImage: (_avatarUrl != null && _avatarUrl!.isNotEmpty)
-                      ? NetworkImage(_avatarUrl!)
-                      : null,
-                  child: (_avatarUrl == null || _avatarUrl!.isEmpty)
-                      ? const Icon(Icons.person, size: 40)
-                      : null,
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                child: Text(
+                  Strings.editProfile,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                  ),
                 ),
-                if (_uploadingAvatar)
-                  const Positioned.fill(
-                    child: CircleAvatar(
-                      backgroundColor: Colors.black38,
-                      child: SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              ),
+              Divider(height: 1, thickness: 0.5, color: colorScheme.outlineVariant),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Center(
+                      child: GestureDetector(
+                        onTap: _uploadingAvatar ? null : _pickAvatar,
+                        child: Stack(
+                          children: [
+                            CircleAvatar(
+                              radius: 44,
+                              backgroundImage: (_avatarUrl != null && _avatarUrl!.isNotEmpty)
+                                  ? NetworkImage(_avatarUrl!)
+                                  : null,
+                              child: (_avatarUrl == null || _avatarUrl!.isEmpty)
+                                  ? const Icon(Icons.person, size: 44)
+                                  : null,
+                            ),
+                            if (_uploadingAvatar)
+                              const Positioned.fill(
+                                child: CircleAvatar(
+                                  backgroundColor: Colors.black38,
+                                  child: SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: CircleAvatar(
+                                radius: 15,
+                                backgroundColor: colorScheme.surface,
+                                child: CircleAvatar(
+                                  radius: 13,
+                                  backgroundColor: colorScheme.primary,
+                                  child: Icon(
+                                    Icons.camera_alt,
+                                    size: 15,
+                                    color: colorScheme.onPrimary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: CircleAvatar(
-                    radius: 14,
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    child: Icon(
-                      Icons.camera_alt,
-                      size: 16,
-                      color: Theme.of(context).colorScheme.onPrimary,
+                    Center(
+                      child: TextButton(
+                        onPressed: _uploadingAvatar ? null : _pickAvatar,
+                        child: const Text(Strings.changePhoto),
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _nameController,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: const InputDecoration(
+                        labelText: Strings.displayName,
+                        prefixIcon: Icon(Icons.person_outline, size: 20),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: _region,
+                      decoration: const InputDecoration(
+                        labelText: Strings.homeRegion,
+                        prefixIcon: Icon(Icons.place_outlined, size: 20),
+                      ),
+                      borderRadius: BorderRadius.circular(AppTheme.panelRadius),
+                      items: Strings.regions
+                          .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                          .toList(),
+                      onChanged: (v) => setState(() => _region = v),
+                    ),
+                    const SizedBox(height: 20),
+                    FilledButton(
+                      onPressed: (!_dirty || busy || _uploadingAvatar) ? null : _save,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 200),
+                        child: _SaveButtonLabel(key: ValueKey(_saveState), state: _saveState),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
-        Center(
-          child: TextButton(
-            onPressed: _uploadingAvatar ? null : _pickAvatar,
-            child: const Text(Strings.changePhoto),
-          ),
-        ),
-        const SizedBox(height: 4),
-        ShadowedField(
-          child: TextField(
-            controller: _nameController,
-            decoration: const InputDecoration(labelText: Strings.displayName),
-          ),
-        ),
-        const SizedBox(height: 12),
-        ShadowedField(
-          child: DropdownButtonFormField<String>(
-            initialValue: _region,
-            decoration: const InputDecoration(labelText: Strings.homeRegion),
-            items: Strings.regions.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
-            onChanged: (v) => setState(() => _region = v),
-          ),
-        ),
-        AnimatedSize(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-          alignment: Alignment.topCenter,
-          child: (_dirty || busy)
-              ? Padding(
-                  padding: const EdgeInsets.only(top: 16),
-                  child: FilledButton(
-                    onPressed: (busy || _uploadingAvatar) ? null : _save,
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      child: _SaveButtonLabel(key: ValueKey(_saveState), state: _saveState),
-                    ),
-                  ),
-                )
-              : const SizedBox(width: double.infinity),
-        ),
-      ],
+      ),
     );
   }
 }
