@@ -5,8 +5,6 @@ import 'package:geolocator/geolocator.dart';
 import '../../l10n/strings.dart';
 import '../../providers.dart';
 
-/// The settings index: one row per section, each opening its own page, with
-/// sign-out set apart at the bottom and the rights line under everything.
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -49,9 +47,6 @@ class SettingsScreen extends ConsumerWidget {
               ],
             ),
           ),
-          // Fills whatever height the rows leave, so the rights line sits at
-          // the foot of the screen on a short page and after the last row on
-          // a long one.
           const SliverFillRemaining(
             hasScrollBody: false,
             child: Align(alignment: Alignment.bottomCenter, child: _RightsFooter()),
@@ -66,8 +61,6 @@ void _open(BuildContext context, Widget page) {
   Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => page));
 }
 
-/// A card of rows separated by hairlines — the grouped-list look settings
-/// screens share across platforms.
 class _SettingsGroup extends StatelessWidget {
   final List<Widget> children;
 
@@ -124,8 +117,6 @@ class _RightsFooter extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      // The bottom inset is the floating nav bar's footprint, so the line
-      // clears it instead of sitting underneath.
       padding: EdgeInsets.fromLTRB(20, 32, 20, MediaQuery.paddingOf(context).bottom + 16),
       child: Text(
         Strings.copyright,
@@ -136,7 +127,6 @@ class _RightsFooter extends StatelessWidget {
   }
 }
 
-/// Appearance and location access.
 class _GeneralSettingsPage extends ConsumerWidget {
   const _GeneralSettingsPage();
 
@@ -161,8 +151,6 @@ class _GeneralSettingsPage extends ConsumerWidget {
                 title: const Text(Strings.locationSetting),
                 secondary: const Icon(Icons.my_location),
                 value: profileAsync.value?.locationEnabled ?? false,
-                // Disabled until the profile loads, so a tap can't write
-                // a preference we haven't read yet.
                 onChanged: profileAsync.value == null
                     ? null
                     : (on) => _setLocationEnabled(context, ref, on),
@@ -175,7 +163,6 @@ class _GeneralSettingsPage extends ConsumerWidget {
   }
 }
 
-/// What the app is and where its data comes from.
 class _AboutPage extends StatelessWidget {
   const _AboutPage();
 
@@ -220,9 +207,6 @@ class _AboutPage extends StatelessWidget {
   }
 }
 
-/// Turning the map's location display on asks for the OS permission up front,
-/// so the stored preference never promises something the system will refuse;
-/// turning it off just clears the preference.
 Future<void> _setLocationEnabled(BuildContext context, WidgetRef ref, bool on) async {
   if (!on) {
     await rememberLocationEnabled(ref, false);
@@ -256,8 +240,6 @@ void _showError(BuildContext context, String message, {bool openSettings = false
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       content: Text(message),
-      // Floated clear of the shell's pill nav bar, which otherwise covers a
-      // bottom-anchored snack bar.
       behavior: SnackBarBehavior.floating,
       margin: EdgeInsets.fromLTRB(16, 0, 16, MediaQuery.paddingOf(context).bottom + 16),
       action: openSettings

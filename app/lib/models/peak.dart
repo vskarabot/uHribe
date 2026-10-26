@@ -9,13 +9,8 @@ class Peak {
   final String? description;
   final String? mountainArea;
 
-  /// How close you have to be for an on-site check-in to count, in metres.
-  /// Null means the peak uses the app-wide default ([defaultCheckinRadiusM]).
   final int? checkinRadiusM;
 
-  /// Matches `c_default_radius_m` in `check_in_peak()`. The server re-checks
-  /// the distance itself, so this is only used to tell the user where they
-  /// stand before they tap.
   static const defaultCheckinRadiusM = 50;
 
   const Peak({

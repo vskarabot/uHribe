@@ -4,12 +4,6 @@ import '../models/hiking_route.dart';
 import 'local/app_database.dart';
 import 'routes_repository.dart';
 
-/// The hiking routes belonging to downloaded peaks, cached on the device.
-///
-/// Bulkier than the peaks — a route carries its full geometry — but it's the
-/// half that makes the peak sheet useful while walking: without it the
-/// "Planinske poti" section has nothing to show exactly where the user is
-/// standing in front of the fork.
 class OfflineRoutesRepository {
   final RoutesRepository _routes;
 
@@ -17,25 +11,16 @@ class OfflineRoutesRepository {
 
   static const _table = 'offline_routes';
 
-  /// Fetches [peakId]'s routes from Supabase and stores them locally. Needs a
-  /// network — this runs as part of downloading the peak itself.
   Future<void> downloadForPeak(int peakId) async {
     final routes = await _routes.fetchForPeak(peakId);
     await cacheForPeak(peakId, routes);
   }
 
-  /// Stores [routes] as [peakId]'s cached set, replacing whatever was there.
-  ///
-  /// Also called opportunistically after a live fetch, so a peak downloaded
-  /// before this cache existed — or one whose routes changed upstream — picks
-  /// them up the first time its sheet is opened with a signal.
   Future<void> cacheForPeak(int peakId, List<HikingRoute> routes) async {
     final now = DateTime.now().toUtc().toIso8601String();
     final db = await AppDatabase.instance();
 
     final batch = db.batch();
-    // Routes that no longer belong to the peak have to go, and there's no
-    // upsert that expresses "and delete the rest".
     batch.delete(_table, where: 'peak_id = ?', whereArgs: [peakId]);
     for (final route in routes) {
       batch.insert(

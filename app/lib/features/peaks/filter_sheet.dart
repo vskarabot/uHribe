@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// One row in a [FilterSheet].
 class FilterOption {
   const FilterOption({
     required this.label,
@@ -13,10 +12,6 @@ class FilterOption {
   final VoidCallback onTap;
 }
 
-/// The shared body of the filter sheets, built to read as a continuation of
-/// the peaks list rather than as its own little world: the same small bold
-/// section heading, the same inset hairline between rows, and the same row
-/// weight — so opening a filter doesn't feel like leaving the page.
 class FilterSheet extends StatelessWidget {
   const FilterSheet({super.key, required this.title, required this.options});
 
@@ -45,8 +40,6 @@ class FilterSheet extends StatelessWidget {
             ),
           ),
           Divider(height: 1, thickness: 0.5, color: colorScheme.outlineVariant),
-          // Flexible, not Expanded: a short list should size to its rows
-          // while a long one still stops at the sheet's height and scrolls.
           Flexible(
             child: ListView.separated(
               shrinkWrap: true,

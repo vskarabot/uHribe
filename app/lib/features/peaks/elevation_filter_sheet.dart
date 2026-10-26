@@ -6,7 +6,6 @@ import '../../models/elevation_bracket.dart';
 import '../../providers.dart';
 import 'filter_sheet.dart';
 
-/// Modal bottom sheet for picking the elevation bracket to filter peaks by.
 Future<void> showElevationFilterSheet(BuildContext context) {
   return showModalBottomSheet(
     context: context,

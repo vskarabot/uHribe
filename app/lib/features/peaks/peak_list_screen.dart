@@ -39,8 +39,6 @@ class _PeakListScreenState extends ConsumerState<PeakListScreen> {
     return result;
   }
 
-  /// Drops every narrowing at once — the search text included, since from
-  /// the user's side that's just one more reason the list looks short.
   void _clearFilters() {
     ref.read(selectedMountainAreaProvider.notifier).set(null);
     ref.read(selectedElevationBracketProvider.notifier).set(null);
@@ -48,9 +46,6 @@ class _PeakListScreenState extends ConsumerState<PeakListScreen> {
     setState(() => _query = '');
   }
 
-  /// The secondary row under a peak's name: its height and the range it
-  /// belongs to, separated by a pipe. Null when we know neither, so the tile
-  /// drops the subtitle instead of showing an empty line.
   static String? _metaLine(Peak peak) {
     final parts = [
       if (peak.elevationM != null) '${peak.elevationM} m',
@@ -68,8 +63,6 @@ class _PeakListScreenState extends ConsumerState<PeakListScreen> {
     final selectedElevation = ref.watch(selectedElevationBracketProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
-    // Filtered once, up here, because the header's count and the list below
-    // have to agree — deriving it twice is how those two drift apart.
     final allPeaks = peaksAsync.value;
     final filtered = allPeaks == null
         ? null
@@ -79,8 +72,6 @@ class _PeakListScreenState extends ConsumerState<PeakListScreen> {
       appBar: AppBar(
         title: Text(
           Strings.greeting(ref.watch(myProfileProvider).value?.displayName),
-          // A touch larger than the plain screen titles elsewhere — this one
-          // is a greeting, not a label.
           style: Theme.of(context).appBarTheme.titleTextStyle?.copyWith(fontSize: 22),
         ),
       ),
@@ -93,8 +84,6 @@ class _PeakListScreenState extends ConsumerState<PeakListScreen> {
                 controller: _searchController,
                 decoration: InputDecoration(
                   hintText: Strings.searchHint,
-                  // InputDecorator sizes its own icons rather than deferring
-                  // to the global icon theme, so they're set here too.
                   prefixIcon: const Icon(Icons.search, size: 20),
                   suffixIcon: _query.isNotEmpty
                       ? IconButton(
@@ -115,9 +104,6 @@ class _PeakListScreenState extends ConsumerState<PeakListScreen> {
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: PeakFilterChips(),
           ),
-          // Closes off the search-and-filter block and opens the results.
-          // This rule runs edge to edge while the row separators below are
-          // inset, so the section boundary reads as the stronger break.
           Container(
             width: double.infinity,
             margin: const EdgeInsets.only(top: 8),
@@ -138,8 +124,6 @@ class _PeakListScreenState extends ConsumerState<PeakListScreen> {
                   ),
                 ),
                 const Spacer(),
-                // The filters' effect, in a number. Without it a narrowed
-                // list looks the same as a short one.
                 if (filtered != null)
                   Text(
                     Strings.peakCount(filtered.length, of: allPeaks!.length),
@@ -153,10 +137,6 @@ class _PeakListScreenState extends ConsumerState<PeakListScreen> {
           ),
           Expanded(
             child: peaksAsync.when(
-              // Signal coming back re-runs the fetch to swap the downloaded
-              // peaks for the full list. Keep the peaks already on screen
-              // during that — the user is looking at them, and a spinner over
-              // a list they can already see is a step backwards.
               skipLoadingOnReload: true,
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (err, _) => _ErrorState(
@@ -164,8 +144,6 @@ class _PeakListScreenState extends ConsumerState<PeakListScreen> {
               ),
               data: (_) {
                 if (filtered!.isEmpty) {
-                  // An empty list is exactly where a forgotten filter bites,
-                  // so say so and offer the way out rather than a dead end.
                   return _EmptyState(
                     filtered: selectedArea != null ||
                         selectedElevation != null ||
@@ -174,10 +152,6 @@ class _PeakListScreenState extends ConsumerState<PeakListScreen> {
                   );
                 }
                 return ListView.separated(
-                  // The shell extends the body under its floating nav bar and
-                  // reports the bar's height as bottom padding. Now that the
-                  // bar is see-through, the last peak would otherwise sit
-                  // permanently frosted over and out of reach.
                   padding: EdgeInsets.only(
                     bottom: MediaQuery.paddingOf(context).bottom + 8,
                   ),
@@ -185,8 +159,6 @@ class _PeakListScreenState extends ConsumerState<PeakListScreen> {
                   separatorBuilder: (_, _) => Divider(
                     height: 1,
                     thickness: 0.5,
-                    // Inset on both sides so the rule reads as separating the
-                    // rows rather than slicing the whole screen in two.
                     indent: 16,
                     endIndent: 16,
                     color: colorScheme.outlineVariant,
@@ -232,9 +204,6 @@ class _PeakListScreenState extends ConsumerState<PeakListScreen> {
   }
 }
 
-/// Shown when nothing matches. Distinguishes "you filtered everything out"
-/// from "there is genuinely nothing here", because only one of those has a
-/// fix the user can act on.
 class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.filtered, required this.onClearFilters});
 

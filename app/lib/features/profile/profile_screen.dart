@@ -26,8 +26,6 @@ class ProfileScreen extends ConsumerWidget {
         title: const Text(Strings.navProfile),
         actions: [
           TextButton(
-            // Primary is the forest green in light mode and its lighter tone
-            // in dark mode, which stays readable on the dark surface.
             style: TextButton.styleFrom(
               foregroundColor: Theme.of(context).colorScheme.primary,
             ),
@@ -90,8 +88,6 @@ class _ProfileHeader extends ConsumerStatefulWidget {
 enum _SaveState { idle, saving, saved }
 
 class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
-  /// How long the save button shows its check mark before the form closes —
-  /// long enough to register, short enough not to feel like a wait.
   static const _savedHold = Duration(milliseconds: 900);
 
   bool _editing = false;
@@ -104,8 +100,6 @@ class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
   @override
   void initState() {
     super.initState();
-    // Rebuilds on every keystroke so the save button can appear the moment
-    // the name differs from what's stored.
     _nameController.addListener(() => setState(() {}));
   }
 
@@ -115,8 +109,6 @@ class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
     super.dispose();
   }
 
-  /// Whether the form differs from the stored profile — the only time there
-  /// is anything to save, so the only time the save button is shown.
   bool get _dirty {
     final profile = widget.profile;
     return _nameController.text.trim() != (profile.displayName ?? '') ||
@@ -124,8 +116,6 @@ class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
         (_avatarUrl ?? '') != (profile.avatarUrl ?? '');
   }
 
-  /// Opens the form from the stored profile, so a cancelled edit never
-  /// lingers into the next one.
   void _startEditing() {
     final profile = widget.profile;
     setState(() {
@@ -181,8 +171,6 @@ class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
     }
   }
 
-  /// Confirms on the button itself rather than with a snack bar: the button
-  /// is where the user is looking, and a snack bar ends up under the nav bar.
   Future<void> _save() async {
     setState(() => _saveState = _SaveState.saving);
     try {
@@ -243,7 +231,6 @@ class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
               color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
             ),
             child: IconButton(
-              // Same green as "Odjava"; the ring is a fainter tint of it.
               icon: Icon(Icons.edit_outlined, color: Theme.of(context).colorScheme.primary),
               tooltip: Strings.editProfile,
               onPressed: _startEditing,
@@ -266,7 +253,6 @@ class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
               ),
             ),
-            // Where the pencil was, so the same spot opens and closes the form.
             IconButton(
               icon: const Icon(Icons.close),
               tooltip: Strings.cancel,
@@ -339,9 +325,6 @@ class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
             onChanged: (v) => setState(() => _region = v),
           ),
         ),
-        // Only there once there's something to save; it stays through the
-        // saving and saved states even though the form is no longer dirty
-        // by then, so the confirmation has somewhere to show.
         AnimatedSize(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeOut,
@@ -364,8 +347,6 @@ class _ProfileHeaderState extends ConsumerState<_ProfileHeader> {
   }
 }
 
-/// A dashed ring around the edit button, so it reads as a control rather
-/// than a stray glyph next to the name.
 class _DottedCirclePainter extends CustomPainter {
   final Color color;
 
@@ -373,12 +354,10 @@ class _DottedCirclePainter extends CustomPainter {
 
   static const _dashCount = 12;
 
-  /// Share of each dash-plus-gap step taken by the dash.
   static const _dashFraction = 0.55;
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Just inside the button's splash circle, so the ripple fills the ring.
     final rect = Rect.fromCircle(
       center: size.center(Offset.zero),
       radius: size.shortestSide / 2 - 4,
@@ -405,8 +384,6 @@ class _SaveButtonLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // The button is disabled while saving, so the label has to bring its own
-    // color — the disabled foreground would grey out the confirmation.
     final color = Theme.of(context).colorScheme.onPrimary;
     return switch (state) {
       _SaveState.idle => const Text(Strings.save),
@@ -427,8 +404,6 @@ class _SaveButtonLabel extends StatelessWidget {
   }
 }
 
-/// Floated clear of the shell's pill nav bar, which otherwise covers a
-/// bottom-anchored snack bar.
 void _showSnackBar(BuildContext context, String message) {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
@@ -439,11 +414,6 @@ void _showSnackBar(BuildContext context, String message) {
   );
 }
 
-/// The numbers above the visit list: counters in a grid, then the handful of
-/// stats that name a peak and a date rather than a count.
-///
-/// The named ones only appear once there is something to name — on an empty
-/// profile they would just be three rows of dashes.
 class _StatsSection extends StatelessWidget {
   final Stats stats;
 
@@ -469,7 +439,6 @@ class _StatsSection extends StatelessWidget {
         LayoutBuilder(
           builder: (context, constraints) {
             const spacing = 12.0;
-            // Four counters: two rows of two on a phone, one row on a tablet.
             final columns = constraints.maxWidth >= 640 ? 4 : 2;
             final width = (constraints.maxWidth - spacing * (columns - 1)) / columns;
             return Wrap(
@@ -513,7 +482,6 @@ class _StatsSection extends StatelessWidget {
   }
 }
 
-/// `12345` → `12.345`, the Slovenian thousands separator.
 String _groupThousands(int value) {
   final digits = value.abs().toString();
   final buffer = StringBuffer(value < 0 ? '-' : '');
@@ -524,7 +492,6 @@ String _groupThousands(int value) {
   return buffer.toString();
 }
 
-/// `d. m. yyyy`, as dates are written in Slovenian.
 String _formatDate(DateTime date) => '${date.day}. ${date.month}. ${date.year}';
 
 class _StatCard extends StatelessWidget {
@@ -561,7 +528,6 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-/// A stat whose answer is a name — the peak, and when.
 class _StatDetailTile extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -612,12 +578,6 @@ class _StatDetailTile extends StatelessWidget {
   }
 }
 
-/// Check-ins the server refused for good.
-///
-/// Only these. A check-in merely waiting for signal needs no UI — it shows as
-/// pending on the peak itself and syncs on its own. A refused one is the one
-/// case nothing else will resolve, so it gets somewhere to be seen and thrown
-/// away. Normally this renders nothing at all.
 class _RejectedCheckInsSection extends ConsumerWidget {
   const _RejectedCheckInsSection();
 
@@ -652,14 +612,6 @@ class _RejectedCheckInsSection extends ConsumerWidget {
   }
 }
 
-/// Renders the visit list with an optimistic local removal step.
-///
-/// The visit list itself only shrinks once [myVisitsProvider] refetches,
-/// which is async. If a [Dismissible] were bound directly to that provider,
-/// a rebuild could still show the just-dismissed item (same key) before the
-/// refetch completes, which crashes with "A dismissed Dismissible widget is
-/// still part of the tree". Hiding the id locally the instant deletion is
-/// confirmed avoids that window entirely.
 class _VisitsSection extends ConsumerStatefulWidget {
   final List<Visit> visits;
 

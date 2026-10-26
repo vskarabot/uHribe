@@ -1,18 +1,13 @@
-/// Slovenian UI strings for the app. Kept in one place instead of a full
-/// i18n setup since the app is Slovenian-only for now.
 class Strings {
   Strings._();
 
-  // App
   static const appName = 'uHribe';
 
-  // Nav
   static const navPeaks = 'Vrhovi';
   static const navMap = 'Zemljevid';
   static const navProfile = 'Profil';
   static const navSettings = 'Nastavitve';
 
-  // Auth
   static const loginTitle = 'Prijava';
   static const email = 'E-poštni naslov';
   static const password = 'Geslo';
@@ -21,13 +16,8 @@ class Strings {
   static const loginGenericError = 'Prijava ni uspela. Poskusite znova.';
   static const logout = 'Odjava';
 
-  // Peaks list
-  /// Greets the user by name, falling back to a plain hello while the profile
-  /// is still loading or when they haven't set a display name.
   static String greeting(String? name) {
     final trimmed = name?.trim() ?? '';
-    // Just the first name: "Pozdravljen, !" reads like a letter
-    // from the bank rather than an app saying hello.
     final firstName = trimmed.split(RegExp(r'\s+')).first;
     return firstName.isEmpty ? 'Živijo!' : 'Živijo, $firstName!';
   }
@@ -40,14 +30,10 @@ class Strings {
   static const noPeaksFound = 'Ni najdenih vrhov.';
   static const clearFilters = 'Počisti filtre';
 
-  /// How many peaks the list is showing. Rendered as a bare total when
-  /// nothing is filtered out and as `shown / total` when something is, which
-  /// sidesteps Slovenian's four-way plural for "vrh" entirely.
   static String peakCount(int shown, {required int of}) => shown == of ? '$of' : '$shown / $of';
   static const loadError = 'Napaka pri nalaganju podatkov.';
   static const retry = 'Poskusi znova';
 
-  // Peak detail
   static const coordinates = 'Koordinate';
   static const wikipediaLink = 'Wikipedia';
   static const routesTitle = 'Planinske poti';
@@ -58,7 +44,6 @@ class Strings {
   static const ok = 'V redu';
   static const visitDeleteError = 'Obiska ni bilo mogoče izbrisati.';
 
-  // Check-in
   static const checkIn = 'Osvojil sem vrh';
   static const checkInSearching = 'Iščem satelite …';
   static const checkInSearchingHint = 'Za natančno meritev ostanite na mestu nekaj sekund.';
@@ -75,7 +60,6 @@ class Strings {
       'Od vrha ste oddaljeni približno $distanceM m, prijava je mogoča le '
       'znotraj $allowedM m.';
 
-  // Offline
   static const offline = 'Brez povezave';
   static const downloadForOffline = 'Prenesi za offline';
   static const downloadedForOffline = 'Na voljo offline';
@@ -85,7 +69,6 @@ class Strings {
   static const discard = 'Zavrzi';
   static const rejectedCheckIn = 'Strežnik je vnos zavrnil';
 
-  // Route sheet
   static const routeDifficulty = 'Zahtevnost';
   static const routeDistance = 'Dolžina';
   static const routeElevationGain = 'Višinska razlika';
@@ -93,7 +76,6 @@ class Strings {
   static const routeShow3d = 'Prikaži 3D relief';
   static const routeShow2d = 'Prikaži 2D zemljevid';
 
-  // Profile
   static const displayName = 'Ime in priimek';
   static const homeRegion = 'Domača regija';
   static const changePhoto = 'Zamenjaj sliko';
@@ -104,7 +86,6 @@ class Strings {
   static const profileSaved = 'Shranjeno';
   static const profileSaveError = 'Profila ni bilo mogoče shraniti.';
 
-  // Settings
   static const settingsGeneral = 'Splošno';
   static const settingsGeneralSubtitle = 'Videz in lokacija';
   static const settingsAbout = 'O aplikaciji';
@@ -128,7 +109,6 @@ class Strings {
   static const deleteVisitConfirm = 'Izbrišem ta obisk?';
   static const delete = 'Izbriši';
 
-  // Slovenian regions, for the home-region picker.
   static const List<String> regions = [
     'Gorenjska',
     'Goriška',
@@ -144,7 +124,6 @@ class Strings {
     'Zasavska',
   ];
 
-  // Mountain areas ("hribovske skupine"), for the peaks filter.
   static const List<String> mountainAreas = [
     'Goriško, Notranjsko in Snežniško hribovje',
     'Julijske Alpe',
@@ -158,7 +137,6 @@ class Strings {
     'Strojna, Košenjak, Kozjak in Slovenske gorice',
   ];
 
-  // Location
   static const locationServicesDisabled =
       'Lokacijske storitve so izklopljene. Vklopite jih v nastavitvah naprave.';
   static const locationPermissionDenied =
@@ -172,10 +150,6 @@ class Strings {
   static const resetNorth = 'Obrni proti severu';
   static const openSettings = 'Nastavitve';
 
-  // Attribution. Shown under Settings → O aplikaciji; the map itself relies on
-  // the Mapbox SDK's own attribution widget. Crediting OSM and Mapbox is a
-  // licensing obligation, not a design choice, so anything that hides the
-  // SDK's widget has to put these back on the map.
   static const osmAttribution = '© OpenStreetMap contributors';
   static const mapboxAttribution = '© Mapbox';
 }

@@ -1,5 +1,3 @@
-/// A maximum-elevation filter option, e.g. "do 1500 m" matches every peak up
-/// to (and including) 1500 m.
 class ElevationBracket {
   final String label;
   final int maxM;

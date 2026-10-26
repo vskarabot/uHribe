@@ -4,11 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/strings.dart';
 import '../../providers.dart';
 
-/// A small chip that appears while the app can't reach the server.
-///
-/// Nothing more: a queued check-in already shows as pending on the peak
-/// itself, and it syncs on its own, so there is nothing here for the user to
-/// do or count.
 class OfflineChip extends ConsumerWidget {
   const OfflineChip({super.key});
 
@@ -21,9 +16,6 @@ class OfflineChip extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Material(
-        // The error role, not tertiary: the green seed turns tertiary blue,
-        // which reads as an informational badge rather than "something is
-        // wrong right now".
         color: colorScheme.errorContainer,
         shape: const StadiumBorder(),
         elevation: 1,

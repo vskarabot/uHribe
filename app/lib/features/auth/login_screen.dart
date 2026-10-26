@@ -41,7 +41,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             email: _emailController.text.trim(),
             password: _passwordController.text,
           );
-      // On success, router redirect (via sessionProvider) takes over.
     } on AuthException catch (_) {
       setState(() => _error = Strings.loginError);
     } catch (_) {

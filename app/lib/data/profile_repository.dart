@@ -15,7 +15,6 @@ class ProfileRepository {
     return Profile.fromJson(row);
   }
 
-  /// Uploads a picked photo as the user's avatar and returns its public URL.
   Future<String> uploadAvatar(Uint8List bytes, String fileExt) async {
     final userId = _client.auth.currentUser!.id;
     final path = '$userId/avatar.$fileExt';
@@ -25,7 +24,6 @@ class ProfileRepository {
           fileOptions: FileOptions(upsert: true),
         );
     final url = _client.storage.from('avatars').getPublicUrl(path);
-    // Bust caches on re-upload since the path never changes.
     return '$url?t=${DateTime.now().millisecondsSinceEpoch}';
   }
 

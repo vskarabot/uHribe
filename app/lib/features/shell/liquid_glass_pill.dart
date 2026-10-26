@@ -3,14 +3,6 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
-/// A rounded-rect surface rendered with a real "liquid glass" backdrop
-/// filter: a custom fragment shader refracts the content behind it near its
-/// edges (like light bending through a thick glass rim) instead of just
-/// blurring it, plus a soft specular sheen and edge highlight.
-///
-/// Falls back to a plain blur if shader-backed backdrop filters aren't
-/// available on the current rendering backend (non-Impeller), or while the
-/// shader asset is still loading.
 class LiquidGlassPill extends StatefulWidget {
   const LiquidGlassPill({
     super.key,
@@ -36,11 +28,7 @@ class LiquidGlassPill extends StatefulWidget {
   final Color? borderColor;
   final double borderWidth;
 
-  /// Cast under the pill so it reads as a floating surface even when what's
-  /// behind it is a flat, same-colored background (where the glass effect
-  /// alone has nothing to refract and the pill would disappear).
   final List<BoxShadow>? shadows;
-
 
   @override
   State<LiquidGlassPill> createState() => _LiquidGlassPillState();
@@ -79,10 +67,6 @@ class _LiquidGlassPillState extends State<LiquidGlassPill> with SingleTickerProv
     final borderColor = widget.borderColor;
     final shape = BorderRadius.circular(widget.borderRadius);
 
-    // Two decorations, because they belong on opposite sides of the glass.
-    // The shadow has to fall behind the pill; the rim has to sit on top of
-    // it — drawn behind, the backdrop filter fills the whole box and paints
-    // straight over the hairline, so the border never shows up at all.
     return DecoratedBox(
       decoration: BoxDecoration(borderRadius: shape, boxShadow: widget.shadows),
       child: DecoratedBox(
@@ -126,9 +110,6 @@ class _LiquidGlassPillState extends State<LiquidGlassPill> with SingleTickerProv
       ..setFloat(7, widget.tint.g)
       ..setFloat(8, widget.tint.b)
       ..setFloat(9, widget.tintStrength);
-    // Blur first, then let the shader refract/tint/sheen the already-frosted
-    // backdrop — a shader with no blur pass would just mirror the sharp
-    // content behind it (reads as a plain transparent hole, not glass).
     return ui.ImageFilter.compose(outer: ui.ImageFilter.shader(shader), inner: blur);
   }
 }

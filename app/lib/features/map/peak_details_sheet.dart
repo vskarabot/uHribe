@@ -11,15 +11,11 @@ import '../../providers.dart';
 import '../../services/checkin_service.dart';
 import '../../services/location_service.dart';
 
-/// Shows [peakId]'s details in a draggable bottom sheet over whatever's
-/// currently on screen (the map, centered and zoomed in on the peak).
 Future<void> showPeakDetailsSheet(BuildContext context, int peakId) {
   return showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     showDragHandle: true,
-    // Corner and handle come from the app's bottomSheetTheme, so this sheet
-    // can't drift away from the filter sheets.
     builder: (context) => PeakDetailsSheet(peakId: peakId),
   );
 }
@@ -34,8 +30,6 @@ class PeakDetailsSheet extends ConsumerWidget {
     final peakAsync = ref.watch(peakByIdProvider(peakId));
     final routesAsync = ref.watch(routesForPeakProvider(peakId));
     final visitedIds = ref.watch(visitedPeakIdsProvider).value ?? const <int>{};
-    // A check-in still sitting in the device queue counts as climbed here —
-    // the user stood on the summit, the server just hasn't been told yet.
     final pendingIds = ref.watch(pendingPeakIdsProvider);
     final downloadedIds = ref.watch(offlinePeakIdsProvider).value ?? const <int>{};
     final online = ref.watch(onlineStatusProvider);
@@ -69,9 +63,6 @@ class PeakDetailsSheet extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Matched to the home page's app-bar title. At the
-                          // 26/w800 this was, the sheet read as a different
-                          // app's screen than the list that opened it.
                           Text(
                             peak.name,
                             style: const TextStyle(
@@ -80,10 +71,6 @@ class PeakDetailsSheet extends ConsumerWidget {
                               height: 1.15,
                             ),
                           ),
-                          // Height and range on one line under the name, the
-                          // same shape as a peak row in the list. Standing in
-                          // its own band below, the height had nothing to sit
-                          // against once it stopped being a huge number.
                           if (peak.elevationM != null || peak.mountainArea != null) ...[
                             const SizedBox(height: 3),
                             Text.rich(
@@ -163,7 +150,6 @@ class PeakDetailsSheet extends ConsumerWidget {
                   Text(peak.description!),
                 ],
                 const SizedBox(height: 20),
-                // The only way to record this peak: be standing on it.
                 FilledButton.icon(
                   icon: const Icon(Icons.flag),
                   label: const Text(Strings.checkIn),
@@ -172,7 +158,6 @@ class PeakDetailsSheet extends ConsumerWidget {
                 const SizedBox(height: 22),
                 _SheetDivider(),
                 const SizedBox(height: 16),
-                // Same 13/w700 as the "Vrhovi" heading over the peaks list.
                 Text(
                   Strings.routesTitle,
                   style: TextStyle(
@@ -190,9 +175,6 @@ class PeakDetailsSheet extends ConsumerWidget {
                   error: (_, _) => const Text(Strings.loadError),
                   data: (routes) {
                     if (routes.isEmpty) {
-                      // Offline, an empty list means nothing was downloaded —
-                      // saying "this peak has no known routes" would be a
-                      // claim about the mountain we can't make from here.
                       return Text(online ? Strings.noRoutes : Strings.routesOffline);
                     }
                     return Column(
@@ -222,11 +204,6 @@ class PeakDetailsSheet extends ConsumerWidget {
     }
   }
 
-  /// Takes a fix and records the ascent, online or not.
-  ///
-  /// Sampling takes several seconds — longer on a cold start with no network
-  /// to hand the receiver its assistance data — so the wait is explicit
-  /// rather than a frozen button.
   Future<void> _checkIn(BuildContext context, WidgetRef ref, Peak peak) async {
     final service = ref.read(checkInServiceProvider);
 
@@ -263,11 +240,9 @@ class PeakDetailsSheet extends ConsumerWidget {
     }
 
     if (!context.mounted) return;
-    Navigator.of(context).pop(); // the progress dialog
+    Navigator.of(context).pop();
 
     if (outcome != null) {
-      // The queue changed either way: a synced check-in left it, a queued one
-      // joined it.
       await ref.read(pendingCheckInsProvider.notifier).reload();
       if (outcome.status == CheckInStatus.recorded) {
         invalidateUserData(ref);
@@ -276,8 +251,6 @@ class PeakDetailsSheet extends ConsumerWidget {
       _snack(context, switch (outcome.status) {
         CheckInStatus.recorded => Strings.checkInRecorded,
         CheckInStatus.queued => Strings.checkInQueued,
-        // Refused by the server. It stays in the pending list on the profile
-        // with the reason, rather than disappearing here.
         CheckInStatus.rejected => Strings.checkInFailed,
       });
       return;
@@ -328,8 +301,6 @@ class PeakDetailsSheet extends ConsumerWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        // Floated clear of the shell's pill nav bar, which otherwise covers a
-        // bottom-anchored snack bar.
         behavior: SnackBarBehavior.floating,
         margin: EdgeInsets.fromLTRB(16, 0, 16, MediaQuery.paddingOf(context).bottom + 16),
         action: openSettings
@@ -352,7 +323,6 @@ class PeakDetailsSheet extends ConsumerWidget {
   }
 
   Uri? _wikipediaUriFromTag(String tag) {
-    // OSM wikipedia tags look like "sl:Triglav".
     final parts = tag.split(':');
     if (parts.length < 2) return null;
     final lang = parts.first;
@@ -361,8 +331,6 @@ class PeakDetailsSheet extends ConsumerWidget {
   }
 }
 
-/// The hairline this sheet divides its sections with — the same weight and
-/// color as the rules on the peaks list, instead of Material's darker default.
 class _SheetDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -390,8 +358,6 @@ class _InfoRow extends StatelessWidget {
         children: [
           Icon(icon, size: 18),
           const SizedBox(width: 10),
-          // w500 label and a muted value, mirroring a peak row's name and
-          // its height-and-range line.
           Text('$label: ', style: const TextStyle(fontWeight: FontWeight.w500)),
           Text(
             value,
@@ -415,8 +381,6 @@ class _RouteTile extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Card(
       child: ListTile(
-        // Weighted like a peak row, so a route in the sheet and a peak in the
-        // list read as the same kind of thing to tap.
         title: Text(route.displayName, style: const TextStyle(fontWeight: FontWeight.w500)),
         subtitle: Text(
           [

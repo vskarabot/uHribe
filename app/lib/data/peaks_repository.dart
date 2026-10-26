@@ -17,14 +17,6 @@ class PeaksRepository {
       .order('elevation_m', ascending: false)
       .order('id');
 
-  /// All peaks, lightweight columns only. Cached by the caller (Riverpod) —
-  /// this hits the network every time it's called.
-  ///
-  /// PostgREST caps an unranged select at a default max-rows limit, so with
-  /// more peaks than that in the table a single select silently drops the
-  /// rest. The first page also asks for the exact total count (free on the
-  /// same request), then the remaining pages are fetched in parallel instead
-  /// of one round trip at a time, so the list doesn't trickle in.
   Future<List<Peak>> fetchAll() async {
     const pageSize = 1000;
 

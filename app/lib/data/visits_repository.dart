@@ -8,7 +8,6 @@ class VisitsRepository {
 
   VisitsRepository(this._client);
 
-  /// Peak ids the current user has visited at least once.
   Future<Set<int>> fetchVisitedPeakIds() async {
     final rows = await _client.from('visits').select('peak_id');
     return (rows as List).map((r) => (r as Map<String, dynamic>)['peak_id'] as int).toSet();
@@ -22,9 +21,6 @@ class VisitsRepository {
         .order('visited_on', ascending: false);
     return (rows as List).map((r) => Visit.fromJson(r as Map<String, dynamic>)).toList();
   }
-
-  // Visits are created only by CheckInService, through the check_in_peak
-  // RPC — inserting into this table directly is revoked.
 
   Future<void> deleteVisit(String id) async {
     await _client.from('visits').delete().eq('id', id);

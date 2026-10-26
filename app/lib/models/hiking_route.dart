@@ -6,7 +6,7 @@ class HikingRoute {
   final String? toName;
   final String? difficulty;
   final int? distanceM;
-  final String geojson; // GeoJSON geometry string (MultiLineString)
+  final String geojson;
 
   const HikingRoute({
     required this.id,

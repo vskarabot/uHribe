@@ -5,8 +5,6 @@ import '../../l10n/strings.dart';
 import '../../providers.dart';
 import 'filter_sheet.dart';
 
-/// Modal bottom sheet for picking the mountain area to filter peaks by.
-/// Shared between the peaks list and map screens via [selectedMountainAreaProvider].
 Future<void> showMountainAreaFilterSheet(BuildContext context) {
   return showModalBottomSheet(
     context: context,
