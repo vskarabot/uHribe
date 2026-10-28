@@ -455,6 +455,31 @@ grant execute on function public.link_peaks_routes() to service_role;
 revoke all on function public.classify_peak_mountain_areas() from public;
 grant execute on function public.classify_peak_mountain_areas() to service_role;
 
+-- Keeps only peaks the import still considers notable and that a marked
+-- hiking route passes. Peaks someone has visited are never removed, since
+-- deleting a peak cascades to its visits.
+create or replace function public.prune_peaks(p_keep_ids bigint[])
+returns integer
+language plpgsql
+set statement_timeout = '5min'
+as $$
+declare
+  v_removed integer;
+begin
+  delete from public.peaks p
+  where not exists (select 1 from public.visits v where v.peak_id = p.id)
+    and (
+      not (p.id = any(p_keep_ids))
+      or not exists (select 1 from public.peak_routes pr where pr.peak_id = p.id)
+    );
+  get diagnostics v_removed = row_count;
+  return v_removed;
+end;
+$$;
+
+revoke all on function public.prune_peaks(bigint[]) from public;
+grant execute on function public.prune_peaks(bigint[]) to service_role;
+
 -- =========================================================
 -- RPCs used by the app
 -- =========================================================

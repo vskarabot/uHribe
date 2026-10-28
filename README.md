@@ -74,8 +74,12 @@ dart run import_osm.dart
 ```
 
 Pulls Slovenian peaks (`natural=peak|hill`) and hiking routes
-(`route=hiking`) from the Overpass API. Safe to re-run — it refreshes the
-data rather than duplicating it.
+(`route=hiking`) from the Overpass API. Only peaks hikers actually go to are
+kept: a peak needs a Wikipedia/Wikidata link or a summit register
+(`summit:register=yes`), and a marked hiking route within 150 m. Peaks that
+fail either test are removed from the database, unless someone has already
+checked in on them. Safe to re-run — it refreshes the data rather than
+duplicating it.
 
 ### 4. Run the app
 

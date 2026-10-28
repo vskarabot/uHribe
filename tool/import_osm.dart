@@ -65,6 +65,12 @@ Future<void> main() async {
   stdout.writeln('Linking peaks to nearby routes …');
   await client.rpc('link_peaks_routes');
 
+  stdout.writeln('Removing peaks that are not notable or not on a marked trail …');
+  final removed = await client.rpc('prune_peaks', params: {
+    'p_keep_ids': peaks.map((p) => p['id']).toList(),
+  });
+  stdout.writeln('  Removed $removed peaks.');
+
   stdout.writeln('Classifying peaks by mountain area …');
   await client.rpc('classify_peak_mountain_areas');
 
@@ -77,12 +83,13 @@ Future<void> main() async {
 // ---------------------------------------------------------------------------
 
 Future<List<Map<String, dynamic>>> _fetchPeaks() async {
-  const query = '''
+  const query = r'''
     [out:json][timeout:180];
     area["ISO3166-1"="SI"][admin_level=2]->.si;
     (
-      node["natural"="peak"]["name"](area.si);
-      node["natural"="hill"]["name"](area.si);
+      node["natural"~"^(peak|hill)$"]["name"]["wikidata"](area.si);
+      node["natural"~"^(peak|hill)$"]["name"]["wikipedia"](area.si);
+      node["natural"~"^(peak|hill)$"]["name"]["summit:register"="yes"](area.si);
     );
     out body;
   ''';
