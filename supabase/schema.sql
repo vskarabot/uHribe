@@ -738,3 +738,194 @@ comment on function public.my_stats() is
 -- anon would get zero rows anyway, but there is no reason to let it ask.
 revoke all on function public.my_stats() from public;
 grant execute on function public.my_stats() to authenticated;
+
+-- =========================================================
+-- friendships: mutual friends
+-- =========================================================
+-- One row per pair, whichever side asked first. Accepting flips status to
+-- 'accepted'; declining, cancelling and unfriending all delete the row.
+create table if not exists public.friendships (
+  requester_id uuid not null references public.profiles (id) on delete cascade,
+  addressee_id uuid not null references public.profiles (id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'accepted')),
+  created_at timestamptz not null default now(),
+  responded_at timestamptz,
+  primary key (requester_id, addressee_id),
+  check (requester_id <> addressee_id)
+);
+
+-- Without this, A→B and B→A could both exist as separate pending requests.
+create unique index if not exists friendships_pair_idx
+  on public.friendships (least(requester_id, addressee_id), greatest(requester_id, addressee_id));
+create index if not exists friendships_addressee_idx on public.friendships (addressee_id);
+
+alter table public.friendships enable row level security;
+
+drop policy if exists "Users read own friendships" on public.friendships;
+create policy "Users read own friendships"
+  on public.friendships for select
+  using (auth.uid() in (requester_id, addressee_id));
+
+revoke insert, update, delete on public.friendships from anon, authenticated;
+
+create or replace function public.send_friend_request(p_user_id uuid)
+returns text
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+  v_row public.friendships;
+begin
+  if v_me is null then
+    raise exception 'Not authenticated' using errcode = 'UH003';
+  end if;
+  if p_user_id = v_me then
+    raise exception 'Cannot befriend yourself' using errcode = 'UH010';
+  end if;
+
+  select * into v_row from public.friendships
+  where (requester_id = v_me and addressee_id = p_user_id)
+     or (requester_id = p_user_id and addressee_id = v_me);
+
+  if found then
+    -- They already asked us: sending back is the same as accepting.
+    if v_row.status = 'pending' and v_row.requester_id = p_user_id then
+      update public.friendships set status = 'accepted', responded_at = now()
+      where requester_id = p_user_id and addressee_id = v_me;
+      return 'friends';
+    end if;
+    return case when v_row.status = 'accepted' then 'friends' else 'outgoing' end;
+  end if;
+
+  insert into public.friendships (requester_id, addressee_id) values (v_me, p_user_id);
+  return 'outgoing';
+end;
+$$;
+
+create or replace function public.accept_friend_request(p_user_id uuid)
+returns void
+language sql
+security definer set search_path = public
+as $$
+  update public.friendships set status = 'accepted', responded_at = now()
+  where requester_id = p_user_id and addressee_id = auth.uid() and status = 'pending';
+$$;
+
+-- Decline, cancel and unfriend in one: whichever row links the two goes.
+create or replace function public.remove_friendship(p_user_id uuid)
+returns void
+language sql
+security definer set search_path = public
+as $$
+  delete from public.friendships
+  where (requester_id = auth.uid() and addressee_id = p_user_id)
+     or (requester_id = p_user_id and addressee_id = auth.uid());
+$$;
+
+-- Status of every friendship row the caller is part of, from their side.
+create or replace function public.my_friends()
+returns table (
+  user_id uuid,
+  display_name text,
+  avatar_url text,
+  home_region text,
+  status text,
+  created_at timestamptz
+)
+language sql
+stable
+security definer set search_path = public
+as $$
+  select p.id, p.display_name, p.avatar_url, p.home_region,
+         case
+           when f.status = 'accepted' then 'friends'
+           when f.requester_id = auth.uid() then 'outgoing'
+           else 'incoming'
+         end,
+         f.created_at
+  from public.friendships f
+  join public.profiles p
+    on p.id = case when f.requester_id = auth.uid() then f.addressee_id else f.requester_id end
+  where auth.uid() in (f.requester_id, f.addressee_id)
+  order by p.display_name;
+$$;
+
+-- profiles is only readable by its owner, so finding other people goes
+-- through here. Email is deliberately not returned.
+create or replace function public.search_profiles(p_query text)
+returns table (
+  user_id uuid,
+  display_name text,
+  avatar_url text,
+  home_region text,
+  status text
+)
+language sql
+stable
+security definer set search_path = public
+as $$
+  select p.id, p.display_name, p.avatar_url, p.home_region,
+         case
+           when f.status = 'accepted' then 'friends'
+           when f.requester_id = auth.uid() then 'outgoing'
+           when f.addressee_id = auth.uid() then 'incoming'
+           else 'none'
+         end
+  from public.profiles p
+  left join public.friendships f
+    on (f.requester_id = auth.uid() and f.addressee_id = p.id)
+    or (f.requester_id = p.id and f.addressee_id = auth.uid())
+  where auth.uid() is not null
+    and p.id <> auth.uid()
+    and length(btrim(p_query)) >= 2
+    and strpos(lower(p.display_name), lower(btrim(p_query))) > 0
+  order by p.display_name
+  limit 20;
+$$;
+
+-- Friends' ascents, newest climb first. Leaves out where exactly they stood
+-- and their notes.
+create or replace function public.friends_feed(p_limit integer default 50)
+returns table (
+  visit_id uuid,
+  user_id uuid,
+  display_name text,
+  avatar_url text,
+  peak_id bigint,
+  peak_name text,
+  elevation_m integer,
+  visited_on date,
+  created_at timestamptz
+)
+language sql
+stable
+security definer set search_path = public
+as $$
+  with friends as (
+    select case when requester_id = auth.uid() then addressee_id else requester_id end as id
+    from public.friendships
+    where status = 'accepted' and auth.uid() in (requester_id, addressee_id)
+  )
+  select v.id, v.user_id, pr.display_name, pr.avatar_url,
+         v.peak_id, pk.name, pk.elevation_m, v.visited_on, v.created_at
+  from public.visits v
+  join friends fr on fr.id = v.user_id
+  join public.profiles pr on pr.id = v.user_id
+  join public.peaks pk on pk.id = v.peak_id
+  order by v.visited_on desc, v.created_at desc
+  limit least(greatest(p_limit, 1), 200);
+$$;
+
+revoke all on function public.send_friend_request(uuid) from public;
+grant execute on function public.send_friend_request(uuid) to authenticated;
+revoke all on function public.accept_friend_request(uuid) from public;
+grant execute on function public.accept_friend_request(uuid) to authenticated;
+revoke all on function public.remove_friendship(uuid) from public;
+grant execute on function public.remove_friendship(uuid) to authenticated;
+revoke all on function public.my_friends() from public;
+grant execute on function public.my_friends() to authenticated;
+revoke all on function public.search_profiles(text) from public;
+grant execute on function public.search_profiles(text) to authenticated;
+revoke all on function public.friends_feed(integer) from public;
+grant execute on function public.friends_feed(integer) to authenticated;

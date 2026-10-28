@@ -12,8 +12,10 @@ import 'data/peaks_repository.dart';
 import 'data/pending_checkins_repository.dart';
 import 'data/profile_repository.dart';
 import 'data/routes_repository.dart';
+import 'data/social_repository.dart';
 import 'data/visits_repository.dart';
 import 'models/elevation_bracket.dart';
+import 'models/friend.dart';
 import 'models/hiking_route.dart';
 import 'models/peak.dart';
 import 'models/pending_checkin.dart';
@@ -46,6 +48,10 @@ final visitsRepositoryProvider = Provider<VisitsRepository>((ref) {
 
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
   return ProfileRepository(ref.watch(supabaseClientProvider));
+});
+
+final socialRepositoryProvider = Provider<SocialRepository>((ref) {
+  return SocialRepository(ref.watch(supabaseClientProvider));
 });
 
 final offlinePeaksRepositoryProvider = Provider<OfflinePeaksRepository>((ref) {
@@ -162,6 +168,21 @@ final myStatsProvider = FutureProvider<Stats>((ref) async {
 final myProfileProvider = FutureProvider<Profile>((ref) async {
   ref.watch(sessionProvider);
   return ref.watch(profileRepositoryProvider).fetchMine();
+});
+
+final friendsProvider = FutureProvider<List<Friend>>((ref) async {
+  ref.watch(sessionProvider);
+  return ref.watch(socialRepositoryProvider).fetchFriends();
+});
+
+final incomingRequestCountProvider = Provider<int>((ref) {
+  final friends = ref.watch(friendsProvider).value ?? const <Friend>[];
+  return friends.where((f) => f.status == FriendshipStatus.incoming).length;
+});
+
+final friendsFeedProvider = FutureProvider<List<FeedItem>>((ref) async {
+  ref.watch(sessionProvider);
+  return ref.watch(socialRepositoryProvider).fetchFeed();
 });
 
 final offlinePeaksProvider = FutureProvider<List<Peak>>((ref) async {
