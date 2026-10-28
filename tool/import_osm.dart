@@ -30,6 +30,7 @@ const _retryableStatusCodes = {429, 503, 504};
 /// answer, while one that has gone silent is given up on.
 const _requestTimeout = Duration(seconds: 240);
 const _batchSize = 500;
+const _linkBatchSize = 100;
 
 Future<void> main() async {
   final env = _loadEnv('.env');
@@ -62,14 +63,22 @@ Future<void> main() async {
   stdout.writeln('Found ${routes.length} routes. Upserting …');
   await _upsertInBatches(client, 'upsert_hiking_routes', routes);
 
-  stdout.writeln('Linking peaks to nearby routes …');
-  await client.rpc('link_peaks_routes');
+  final peakIds = peaks.map((p) => p['id']).toList();
 
-  stdout.writeln('Removing peaks that are not notable or not on a marked trail …');
-  final removed = await client.rpc('prune_peaks', params: {
-    'p_keep_ids': peaks.map((p) => p['id']).toList(),
-  });
-  stdout.writeln('  Removed $removed peaks.');
+  stdout.writeln('Removing peaks that are not notable …');
+  final unlisted = await client.rpc('prune_unlisted_peaks', params: {'p_keep_ids': peakIds});
+  stdout.writeln('  Removed $unlisted peaks.');
+
+  stdout.writeln('Linking peaks to nearby routes …');
+  for (var i = 0; i < peakIds.length; i += _linkBatchSize) {
+    final batch = peakIds.sublist(i, math.min(i + _linkBatchSize, peakIds.length));
+    await client.rpc('link_peaks_routes', params: {'p_peak_ids': batch});
+    stdout.writeln('  ${math.min(i + _linkBatchSize, peakIds.length)}/${peakIds.length}');
+  }
+
+  stdout.writeln('Removing peaks without a marked trail …');
+  final trailless = await client.rpc('prune_trailless_peaks');
+  stdout.writeln('  Removed $trailless peaks.');
 
   stdout.writeln('Classifying peaks by mountain area …');
   await client.rpc('classify_peak_mountain_areas');

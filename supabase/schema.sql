@@ -203,27 +203,25 @@ create policy "Peak routes are publicly readable"
   on public.peak_routes for select
   using (true);
 
--- Links peaks to routes that pass within 150m of them.
--- Re-run after every import to refresh the links.
-create or replace function public.link_peaks_routes()
+drop function if exists public.link_peaks_routes();
+
+-- Links the given peaks to routes that pass within 150m of them. The import
+-- calls it in batches, since one call over every peak outlasts the API
+-- gateway's request timeout.
+create or replace function public.link_peaks_routes(p_peak_ids bigint[])
 returns void
 language plpgsql
 set statement_timeout = '5min'
 as $$
 begin
-  -- The import tool just bulk-loaded peaks/hiking_routes; refresh planner
-  -- stats so this join actually uses the geo indexes instead of falling
-  -- back to a full nested-loop scan over every peak x route pair.
-  analyze public.peaks;
-  analyze public.hiking_routes;
-
-  delete from public.peak_routes where true;
+  delete from public.peak_routes where peak_id = any(p_peak_ids);
 
   insert into public.peak_routes (peak_id, route_id)
   select p.id, r.id
   from public.peaks p
   join public.hiking_routes r
     on ST_DWithin(r.geom::geography, p.location, 150)
+  where p.id = any(p_peak_ids)
   on conflict do nothing;
 end;
 $$;
@@ -449,16 +447,19 @@ $$;
 revoke all on function public.upsert_hiking_routes(jsonb) from public;
 grant execute on function public.upsert_hiking_routes(jsonb) to service_role;
 
-revoke all on function public.link_peaks_routes() from public;
-grant execute on function public.link_peaks_routes() to service_role;
+revoke all on function public.link_peaks_routes(bigint[]) from public;
+grant execute on function public.link_peaks_routes(bigint[]) to service_role;
 
 revoke all on function public.classify_peak_mountain_areas() from public;
 grant execute on function public.classify_peak_mountain_areas() to service_role;
 
--- Keeps only peaks the import still considers notable and that a marked
--- hiking route passes. Peaks someone has visited are never removed, since
+drop function if exists public.prune_peaks(bigint[]);
+
+-- The two prune steps below never remove a peak someone has visited, since
 -- deleting a peak cascades to its visits.
-create or replace function public.prune_peaks(p_keep_ids bigint[])
+
+-- Removes peaks the import no longer returns (not notable), before linking.
+create or replace function public.prune_unlisted_peaks(p_keep_ids bigint[])
 returns integer
 language plpgsql
 set statement_timeout = '5min'
@@ -467,18 +468,39 @@ declare
   v_removed integer;
 begin
   delete from public.peaks p
-  where not exists (select 1 from public.visits v where v.peak_id = p.id)
-    and (
-      not (p.id = any(p_keep_ids))
-      or not exists (select 1 from public.peak_routes pr where pr.peak_id = p.id)
-    );
+  where not (p.id = any(p_keep_ids))
+    and not exists (select 1 from public.visits v where v.peak_id = p.id);
+  get diagnostics v_removed = row_count;
+
+  -- Fresh planner stats so the batched linking uses the geo indexes.
+  analyze public.peaks;
+  analyze public.hiking_routes;
+  return v_removed;
+end;
+$$;
+
+revoke all on function public.prune_unlisted_peaks(bigint[]) from public;
+grant execute on function public.prune_unlisted_peaks(bigint[]) to service_role;
+
+-- Removes peaks no marked hiking route passes, after linking.
+create or replace function public.prune_trailless_peaks()
+returns integer
+language plpgsql
+set statement_timeout = '5min'
+as $$
+declare
+  v_removed integer;
+begin
+  delete from public.peaks p
+  where not exists (select 1 from public.peak_routes pr where pr.peak_id = p.id)
+    and not exists (select 1 from public.visits v where v.peak_id = p.id);
   get diagnostics v_removed = row_count;
   return v_removed;
 end;
 $$;
 
-revoke all on function public.prune_peaks(bigint[]) from public;
-grant execute on function public.prune_peaks(bigint[]) to service_role;
+revoke all on function public.prune_trailless_peaks() from public;
+grant execute on function public.prune_trailless_peaks() to service_role;
 
 -- =========================================================
 -- RPCs used by the app
