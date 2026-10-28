@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/strings.dart';
 import '../../models/elevation_bracket.dart';
+import '../../models/nearby_filter.dart';
 import '../../models/peak.dart';
 import '../../providers.dart';
 import '../../theme.dart';
@@ -25,29 +26,39 @@ class _PeakListScreenState extends ConsumerState<PeakListScreen> {
     super.dispose();
   }
 
-  List<Peak> _filterAndSort(List<Peak> peaks, String? area, ElevationBracket? elevation) {
+  List<Peak> _filterAndSort(
+    List<Peak> peaks,
+    String? area,
+    ElevationBracket? elevation,
+    NearbyFilter? nearby,
+  ) {
     var result = peaks.where((p) {
       if (area != null && p.mountainArea != area) return false;
       if (elevation != null && !elevation.matches(p.elevationM)) return false;
+      if (nearby != null && !nearby.matches(p)) return false;
       if (_query.isEmpty) return true;
       final q = _query.toLowerCase();
       return p.name.toLowerCase().contains(q) ||
           (p.nameAlt?.toLowerCase().contains(q) ?? false);
     }).toList();
 
-    result.sort((a, b) => (b.elevationM ?? 0).compareTo(a.elevationM ?? 0));
+    if (nearby != null) {
+      result.sort((a, b) => nearby.distanceM(a).compareTo(nearby.distanceM(b)));
+    } else {
+      result.sort((a, b) => (b.elevationM ?? 0).compareTo(a.elevationM ?? 0));
+    }
     return result;
   }
 
   void _clearFilters() {
-    ref.read(selectedMountainAreaProvider.notifier).set(null);
-    ref.read(selectedElevationBracketProvider.notifier).set(null);
+    clearPeakFilters(ref);
     _searchController.clear();
     setState(() => _query = '');
   }
 
-  static String? _metaLine(Peak peak) {
+  static String? _metaLine(Peak peak, NearbyFilter? nearby) {
     final parts = [
+      if (nearby != null) Strings.distance(nearby.distanceM(peak)),
       if (peak.elevationM != null) '${peak.elevationM} m',
       if (peak.mountainArea != null) peak.mountainArea!,
     ];
@@ -61,12 +72,13 @@ class _PeakListScreenState extends ConsumerState<PeakListScreen> {
     final visitedIds = visitedAsync.value ?? const <int>{};
     final selectedArea = ref.watch(selectedMountainAreaProvider);
     final selectedElevation = ref.watch(selectedElevationBracketProvider);
+    final selectedNearby = ref.watch(selectedNearbyFilterProvider);
     final colorScheme = Theme.of(context).colorScheme;
 
     final allPeaks = peaksAsync.value;
     final filtered = allPeaks == null
         ? null
-        : _filterAndSort(allPeaks, selectedArea, selectedElevation);
+        : _filterAndSort(allPeaks, selectedArea, selectedElevation, selectedNearby);
 
     return Scaffold(
       appBar: AppBar(
@@ -147,6 +159,7 @@ class _PeakListScreenState extends ConsumerState<PeakListScreen> {
                   return _EmptyState(
                     filtered: selectedArea != null ||
                         selectedElevation != null ||
+                        selectedNearby != null ||
                         _query.isNotEmpty,
                     onClearFilters: _clearFilters,
                   );
@@ -166,7 +179,7 @@ class _PeakListScreenState extends ConsumerState<PeakListScreen> {
                   itemBuilder: (context, index) {
                     final peak = filtered[index];
                     final visited = visitedIds.contains(peak.id);
-                    final meta = _metaLine(peak);
+                    final meta = _metaLine(peak, selectedNearby);
                     return ListTile(
                       title: Text(peak.name, style: const TextStyle(fontWeight: FontWeight.w500)),
                       subtitle: meta == null

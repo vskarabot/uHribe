@@ -13,6 +13,7 @@ class PeakFilterChips extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedArea = ref.watch(selectedMountainAreaProvider);
     final selectedElevation = ref.watch(selectedElevationBracketProvider);
+    final selectedNearby = ref.watch(selectedNearbyFilterProvider);
 
     return Align(
       alignment: Alignment.centerLeft,
@@ -23,10 +24,15 @@ class PeakFilterChips extends ConsumerWidget {
         children: [
           PeakFilterChip(
             icon: Icons.filter_alt_outlined,
-            label: selectedArea ?? Strings.allAreas,
-            active: selectedArea != null,
+            label: selectedNearby != null
+                ? Strings.filterNearby
+                : selectedArea ?? Strings.allAreas,
+            active: selectedArea != null || selectedNearby != null,
             onTap: () => showMountainAreaFilterSheet(context),
-            onClear: () => ref.read(selectedMountainAreaProvider.notifier).set(null),
+            onClear: () {
+              ref.read(selectedMountainAreaProvider.notifier).set(null);
+              ref.read(selectedNearbyFilterProvider.notifier).set(null);
+            },
           ),
           PeakFilterChip(
             icon: Icons.height,

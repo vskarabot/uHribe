@@ -472,7 +472,7 @@ class _StatsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final counters = <Widget>[
+    final cards = <Widget>[
       _StatCard(label: Strings.statsPeaksVisited, value: '${stats.peaksVisited}'),
       _StatCard(label: Strings.statsTotalVisits, value: '${stats.totalVisits}'),
       _StatCard(label: Strings.statsThisYear, value: '${stats.visitsThisYear}'),
@@ -495,37 +495,17 @@ class _StatsSection extends StatelessWidget {
             return Wrap(
               spacing: spacing,
               runSpacing: spacing,
-              children: [for (final card in counters) SizedBox(width: width, child: card)],
+              children: [for (final card in cards) SizedBox(width: width, child: card)],
             );
           },
         ),
         if (stats.highestPeakName != null) ...[
           const SizedBox(height: 12),
-          _StatDetailTile(
-            icon: Icons.landscape_outlined,
-            label: Strings.statsHighestPeak,
+          _StatCard(
+            label: stats.highestPeakElevationM != null
+                ? '${Strings.statsHighestPeak} · ${stats.highestPeakElevationM} m'
+                : Strings.statsHighestPeak,
             value: stats.highestPeakName!,
-            trailing: stats.highestPeakElevationM != null
-                ? '${stats.highestPeakElevationM} m'
-                : null,
-          ),
-        ],
-        if (stats.firstVisitOn != null) ...[
-          const SizedBox(height: 8),
-          _StatDetailTile(
-            icon: Icons.flag_outlined,
-            label: Strings.statsFirstVisit,
-            value: stats.firstVisitPeakName ?? '',
-            trailing: _formatDate(stats.firstVisitOn!),
-          ),
-        ],
-        if (stats.lastVisitOn != null) ...[
-          const SizedBox(height: 8),
-          _StatDetailTile(
-            icon: Icons.schedule_outlined,
-            label: Strings.statsLastVisit,
-            value: stats.lastVisitPeakName ?? '',
-            trailing: _formatDate(stats.lastVisitOn!),
           ),
         ],
       ],
@@ -579,55 +559,6 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-class _StatDetailTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final String? trailing;
-
-  const _StatDetailTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.trailing,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: theme.colorScheme.primary),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(label, style: theme.textTheme.bodySmall),
-                  Text(
-                    value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                  ),
-                ],
-              ),
-            ),
-            if (trailing != null) ...[
-              const SizedBox(width: 12),
-              Text(trailing!, style: theme.textTheme.bodyMedium),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _RejectedCheckInsSection extends ConsumerWidget {
   const _RejectedCheckInsSection();
@@ -712,43 +643,27 @@ class _VisitTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Dismissible(
-      key: ValueKey(visit.id),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        color: Theme.of(context).colorScheme.errorContainer,
-        child: Icon(Icons.delete, color: Theme.of(context).colorScheme.onErrorContainer),
-      ),
-      confirmDismiss: (_) async {
-        final confirmed = await _confirmDelete(context);
-        if (confirmed) onDelete();
-        return confirmed;
-      },
-      child: Card(
-        child: ListTile(
-          title: Text(visit.peakName ?? '#${visit.peakId}'),
-          subtitle: Text(
-            '${_formatDate(visit.visitedOn)}'
-            '${visit.notes != null && visit.notes!.isNotEmpty ? ' · ${visit.notes}' : ''}',
-          ),
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (visit.peakElevationM != null) ...[
-                Text('${visit.peakElevationM} m'),
-                const SizedBox(width: 4),
-              ],
-              IconButton(
-                icon: const Icon(Icons.delete_outline),
-                tooltip: Strings.delete,
-                onPressed: () async {
-                  if (await _confirmDelete(context)) onDelete();
-                },
-              ),
-            ],
-          ),
+    final error = Theme.of(context).colorScheme.error;
+    return Card(
+      child: ListTile(
+        contentPadding: const EdgeInsets.only(left: 16, right: 4),
+        title: Text(visit.peakName ?? '#${visit.peakId}'),
+        subtitle: Text(
+          '${_formatDate(visit.visitedOn)}'
+          '${visit.notes != null && visit.notes!.isNotEmpty ? ' · ${visit.notes}' : ''}',
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (visit.peakElevationM != null) Text('${visit.peakElevationM} m'),
+            IconButton(
+              icon: Icon(Icons.delete_outline, color: error),
+              tooltip: Strings.delete,
+              onPressed: () async {
+                if (await _confirmDelete(context)) onDelete();
+              },
+            ),
+          ],
         ),
       ),
     );

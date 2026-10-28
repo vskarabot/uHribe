@@ -134,6 +134,23 @@ class LocationService {
     }
   }
 
+  Future<({double lat, double lon})> currentPosition() async {
+    await ensurePermission();
+    try {
+      final fix = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+      return (lat: fix.latitude, lon: fix.longitude);
+    } catch (_) {
+      final last = await Geolocator.getLastKnownPosition();
+      if (last == null) throw const LocationException(LocationFailure.unavailable);
+      return (lat: last.latitude, lon: last.longitude);
+    }
+  }
+
   static double distanceM(double lat1, double lon1, double lat2, double lon2) =>
       Geolocator.distanceBetween(lat1, lon1, lat2, lon2);
 }
