@@ -8,6 +8,7 @@ import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart' hide Size;
 
 import '../../l10n/strings.dart';
 import '../../models/elevation_bracket.dart';
+import '../../models/nearby_filter.dart';
 import '../../models/peak.dart';
 import '../../providers.dart';
 import '../../theme.dart';
@@ -56,6 +57,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
   List<Peak>? _lastRawPeaks;
   String? _lastArea;
   ElevationBracket? _lastElevation;
+  NearbyFilter? _lastNearby;
   Set<int> _lastVisited = const {};
   bool _didInitialCenter = false;
   bool _cameraTakenOver = false;
@@ -75,11 +77,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     List<Peak> peaks,
     String? area,
     ElevationBracket? elevation,
+    NearbyFilter? nearby,
   ) {
-    if (area == null && elevation == null) return peaks;
+    if (area == null && elevation == null && nearby == null) return peaks;
     return peaks.where((p) {
       if (area != null && p.mountainArea != area) return false;
       if (elevation != null && !elevation.matches(p.elevationM)) return false;
+      if (nearby != null && !nearby.matches(p)) return false;
       return true;
     }).toList();
   }
@@ -110,6 +114,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final visitedIds = ref.watch(visitedPeakIdsProvider).value ?? const <int>{};
     final selectedArea = ref.watch(selectedMountainAreaProvider);
     final selectedElevation = ref.watch(selectedElevationBracketProvider);
+    final selectedNearby = ref.watch(selectedNearbyFilterProvider);
     final locationEnabled =
         ref.watch(myProfileProvider).value?.locationEnabled ?? false;
 
@@ -124,7 +129,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
     final rawPeaks = peaksAsync.value;
     final peaks = rawPeaks == null
         ? null
-        : _visiblePeaks(rawPeaks, selectedArea, selectedElevation);
+        : _visiblePeaks(rawPeaks, selectedArea, selectedElevation, selectedNearby);
     final matches = peaks == null ? const <Peak>[] : _searchMatches(peaks);
 
     ref.listen(peakFocusProvider, (_, request) {
@@ -135,11 +140,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       final changed = !identical(rawPeaks, _lastRawPeaks) ||
           selectedArea != _lastArea ||
           selectedElevation != _lastElevation ||
+          selectedNearby != _lastNearby ||
           !_setEquals(visitedIds, _lastVisited);
       if (changed) {
         _lastRawPeaks = rawPeaks;
         _lastArea = selectedArea;
         _lastElevation = selectedElevation;
+        _lastNearby = selectedNearby;
         _lastVisited = visitedIds;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _updateSource(peaks, visitedIds);
@@ -720,7 +727,8 @@ class _FilterButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final active = ref.watch(selectedMountainAreaProvider) != null ||
-        ref.watch(selectedElevationBracketProvider) != null;
+        ref.watch(selectedElevationBracketProvider) != null ||
+        ref.watch(selectedNearbyFilterProvider) != null;
 
     return ShadowedField(
       radius: _size / 2,
@@ -764,6 +772,7 @@ class _FiltersSheet extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final area = ref.watch(selectedMountainAreaProvider);
     final elevation = ref.watch(selectedElevationBracketProvider);
+    final nearby = ref.watch(selectedNearbyFilterProvider);
 
     final divider = Divider(
       height: 1,
@@ -794,10 +803,13 @@ class _FiltersSheet extends ConsumerWidget {
           _FilterRow(
             icon: Icons.filter_alt_outlined,
             title: Strings.filterByArea,
-            value: area ?? Strings.allAreas,
-            active: area != null,
+            value: nearby != null ? Strings.filterNearby : area ?? Strings.allAreas,
+            active: area != null || nearby != null,
             onTap: () => showMountainAreaFilterSheet(context),
-            onClear: () => ref.read(selectedMountainAreaProvider.notifier).set(null),
+            onClear: () {
+              ref.read(selectedMountainAreaProvider.notifier).set(null);
+              ref.read(selectedNearbyFilterProvider.notifier).set(null);
+            },
           ),
           divider,
           _FilterRow(
@@ -809,15 +821,12 @@ class _FiltersSheet extends ConsumerWidget {
             onClear: () =>
                 ref.read(selectedElevationBracketProvider.notifier).set(null),
           ),
-          if (area != null || elevation != null) ...[
+          if (area != null || elevation != null || nearby != null) ...[
             divider,
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: OutlinedButton(
-                onPressed: () {
-                  ref.read(selectedMountainAreaProvider.notifier).set(null);
-                  ref.read(selectedElevationBracketProvider.notifier).set(null);
-                },
+                onPressed: () => clearPeakFilters(ref),
                 child: const Text(Strings.clearFilters),
               ),
             ),

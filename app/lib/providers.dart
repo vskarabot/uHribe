@@ -17,6 +17,7 @@ import 'data/visits_repository.dart';
 import 'models/elevation_bracket.dart';
 import 'models/friend.dart';
 import 'models/hiking_route.dart';
+import 'models/nearby_filter.dart';
 import 'models/peak.dart';
 import 'models/pending_checkin.dart';
 import 'models/profile.dart';
@@ -150,7 +151,25 @@ final selectedElevationBracketProvider =
   SelectedElevationBracketNotifier.new,
 );
 
-final visitedPeakIdsProvider = FutureProvider<Set<int>>((ref) async {
+class SelectedNearbyFilterNotifier extends Notifier<NearbyFilter?> {
+  @override
+  NearbyFilter? build() => null;
+
+  void set(NearbyFilter? filter) => state = filter;
+}
+
+final selectedNearbyFilterProvider =
+    NotifierProvider<SelectedNearbyFilterNotifier, NearbyFilter?>(
+  SelectedNearbyFilterNotifier.new,
+);
+
+void clearPeakFilters(WidgetRef ref) {
+  ref.read(selectedMountainAreaProvider.notifier).set(null);
+  ref.read(selectedElevationBracketProvider.notifier).set(null);
+  ref.read(selectedNearbyFilterProvider.notifier).set(null);
+}
+
+final visitedPeakIdsProvider =FutureProvider<Set<int>>((ref) async {
   ref.watch(sessionProvider);
   return ref.watch(visitsRepositoryProvider).fetchVisitedPeakIds();
 });
@@ -332,29 +351,25 @@ void invalidateUserData(WidgetRef ref) {
   ref.invalidate(myStatsProvider);
 }
 
+final sharedPreferencesProvider = Provider<SharedPreferences>((ref) {
+  throw UnimplementedError('Overridden in main()');
+});
+
 class ThemeModeNotifier extends Notifier<ThemeMode> {
   static const _prefsKey = 'theme_mode';
 
   @override
   ThemeMode build() {
-    _load();
-    return ThemeMode.system;
-  }
-
-  Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    switch (prefs.getString(_prefsKey)) {
-      case 'light':
-        state = ThemeMode.light;
-      case 'dark':
-        state = ThemeMode.dark;
-    }
+    return switch (ref.watch(sharedPreferencesProvider).getString(_prefsKey)) {
+      'light' => ThemeMode.light,
+      'dark' => ThemeMode.dark,
+      _ => ThemeMode.system,
+    };
   }
 
   Future<void> setDark(bool dark) async {
     state = dark ? ThemeMode.dark : ThemeMode.light;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_prefsKey, dark ? 'dark' : 'light');
+    await ref.read(sharedPreferencesProvider).setString(_prefsKey, dark ? 'dark' : 'light');
   }
 }
 

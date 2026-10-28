@@ -144,7 +144,7 @@ class _GeneralSettingsPage extends ConsumerWidget {
               SwitchListTile(
                 title: const Text(Strings.darkMode),
                 secondary: const Icon(Icons.dark_mode_outlined),
-                value: ref.watch(themeModeProvider) == ThemeMode.dark,
+                value: Theme.of(context).brightness == Brightness.dark,
                 onChanged: (dark) => ref.read(themeModeProvider.notifier).setDark(dark),
               ),
               SwitchListTile(

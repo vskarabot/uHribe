@@ -58,6 +58,12 @@ class Strings {
   static const filterByElevation = 'Višina';
   static const allAreas = 'Vsa gorovja';
   static const allElevations = 'Vse višine';
+  static const filterNearby = 'V bližini';
+  static const locatingForNearby = 'Iščem vašo lokacijo …';
+
+  static String distance(double meters) => meters < 1000
+      ? '${meters.round()} m'
+      : '${(meters / 1000).toStringAsFixed(1).replaceAll('.', ',')} km';
   static const noPeaksFound = 'Ni najdenih vrhov.';
   static const clearFilters = 'Počisti filtre';
 
