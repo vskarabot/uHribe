@@ -19,9 +19,12 @@ mountains and hills. Flutter + Supabase + Mapbox.
 - **Profile** — edit your profile (name, photo, region), browse your visits,
   and see stats: peaks visited, total visits, visits this year, cumulative
   elevation, highest summit, and first and last ascent.
+- **Friends** — find other hikers by name, send and accept friend requests,
+  and follow your friends' ascents in the Activity feed. Friends see which
+  peak and when, never where exactly you stood or your notes.
 
-Peak and route data is imported from OpenStreetMap. There is no sign-up —
-create user accounts by hand in the Supabase dashboard.
+Peak and route data is imported from OpenStreetMap. Anyone can register with
+an email address and password.
 
 The app's interface is in Slovenian.
 
@@ -36,10 +39,13 @@ Requires Flutter with Dart SDK **3.11.4** or newer (`flutter --version`).
 1. Create a new project at [supabase.com](https://supabase.com).
 2. In the **SQL Editor**, run [`supabase/schema.sql`](supabase/schema.sql) —
    the whole schema in one file, safe to run more than once.
-3. Under **Authentication → Sign In / Providers**, leave Email enabled but
-   turn off "Allow new users to sign up".
-4. Under **Authentication → Users → Add user**, create a user (email +
-   password, tick "Auto confirm").
+3. Under **Authentication → Sign In / Providers**, leave Email enabled and
+   "Allow new users to sign up" on. With "Confirm email" on, new users get a
+   confirmation link and log in after clicking it — set **Authentication →
+   URL Configuration → Site URL** to a page that says so, since the app does
+   not handle the link itself.
+4. Optionally, under **Authentication → Users → Add user**, create a user by
+   hand (email + password, tick "Auto confirm").
 5. From **Settings → API**, note the Project URL, the `anon`/`publishable`
    key, and the `service_role` key (the last one is for the import script
    only).

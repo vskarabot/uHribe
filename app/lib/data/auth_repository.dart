@@ -15,6 +15,19 @@ class AuthRepository {
     await _client.auth.signInWithPassword(email: email, password: password);
   }
 
+  Future<bool> signUp({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
+    final response = await _client.auth.signUp(
+      email: email,
+      password: password,
+      data: {'display_name': displayName},
+    );
+    return response.session != null;
+  }
+
   Future<void> signOut() async {
     await _client.auth.signOut();
   }
