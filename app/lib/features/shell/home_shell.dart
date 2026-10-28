@@ -7,6 +7,7 @@ import '../map/map_screen.dart';
 import '../peaks/peak_list_screen.dart';
 import '../profile/profile_screen.dart';
 import '../settings/settings_screen.dart';
+import '../social/feed_screen.dart';
 import 'bottom_fade_scrim.dart';
 import 'offline_chip.dart';
 import 'pill_nav_bar.dart';
@@ -26,6 +27,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   static const _tabs = [
     PeakListScreen(),
     MapScreen(),
+    FeedScreen(),
     ProfileScreen(),
     SettingsScreen(),
   ];
@@ -78,6 +80,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
             icon: Icons.map_outlined,
             selectedIcon: Icons.map,
             label: Strings.navMap,
+          ),
+          PillNavDestination(
+            icon: Icons.dynamic_feed_outlined,
+            selectedIcon: Icons.dynamic_feed,
+            label: Strings.navFeed,
           ),
           PillNavDestination(
             icon: Icons.person_outline,

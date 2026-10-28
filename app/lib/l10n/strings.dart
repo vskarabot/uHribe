@@ -16,6 +16,36 @@ class Strings {
   static const loginGenericError = 'Prijava ni uspela. Poskusite znova.';
   static const logout = 'Odjava';
 
+  static const noAccount = 'Nimaš računa? Registriraj se';
+  static const haveAccount = 'Že imaš račun? Prijavi se';
+  static const registerTitle = 'Registracija';
+  static const registerButton = 'Ustvari račun';
+  static const passwordTooShort = 'Geslo mora imeti vsaj 6 znakov.';
+  static const registerError = 'Registracija ni uspela. Poskusite znova.';
+  static const registerConfirmEmail =
+      'Na vaš e-poštni naslov smo poslali povezavo za potrditev. Po potrditvi '
+      'se lahko prijavite.';
+
+  static const navFeed = 'Aktivnost';
+  static const friendsTitle = 'Prijatelji';
+  static const searchPeopleHint = 'Išči po imenu …';
+  static const noPeopleFound = 'Ni najdenih uporabnikov.';
+  static const friendRequests = 'Prošnje za prijateljstvo';
+  static const sentRequests = 'Poslane prošnje';
+  static const noFriendsYet = 'Nimaš še prijateljev.';
+  static const addFriends = 'Dodaj prijatelje';
+  static const addFriend = 'Dodaj';
+  static const accept = 'Sprejmi';
+  static const decline = 'Zavrni';
+  static const requestSent = 'Poslano';
+  static const removeFriend = 'Odstrani prijatelja';
+  static const removeFriendConfirm = 'Odstranim prijatelja?';
+  static const remove = 'Odstrani';
+  static const friendActionError = 'Dejanja ni bilo mogoče izvesti.';
+  static const feedEmpty = 'Tvoji prijatelji še niso osvojili nobenega vrha.';
+
+  static String pendingRequests(int count) => '$friendRequests ($count)';
+
   static String greeting(String? name) {
     final trimmed = name?.trim() ?? '';
     final firstName = trimmed.split(RegExp(r'\s+')).first;

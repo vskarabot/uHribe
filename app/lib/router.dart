@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'features/auth/login_screen.dart';
+import 'features/auth/register_screen.dart';
 import 'features/routes/route_detail_screen.dart';
 import 'features/shell/home_shell.dart';
+import 'features/social/friends_screen.dart';
 import 'models/hiking_route.dart';
 import 'providers.dart';
 
@@ -23,7 +25,8 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: refreshNotifier,
     redirect: (context, state) {
       final loggedIn = ref.read(sessionProvider) != null;
-      final loggingIn = state.matchedLocation == '/login';
+      final loggingIn =
+          state.matchedLocation == '/login' || state.matchedLocation == '/register';
 
       if (!loggedIn) return loggingIn ? null : '/login';
       if (loggingIn) return '/';
@@ -35,8 +38,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const LoginScreen(),
       ),
       GoRoute(
+        path: '/register',
+        builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
         path: '/',
         builder: (context, state) => const HomeShell(),
+      ),
+      GoRoute(
+        path: '/friends',
+        builder: (context, state) => const FriendsScreen(),
       ),
       GoRoute(
         path: '/route',
