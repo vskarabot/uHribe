@@ -296,7 +296,8 @@ begin
     where ST_Contains(a.geom, p.location::geometry)
     order by ST_Area(a.geom) asc
     limit 1
-  );
+  )
+  where true;
 
   update public.peaks p
   set mountain_area = (
@@ -455,10 +456,11 @@ grant execute on function public.classify_peak_mountain_areas() to service_role;
 
 drop function if exists public.prune_peaks(bigint[]);
 
--- The two prune steps below never remove a peak someone has visited, since
--- deleting a peak cascades to its visits.
+drop function if exists public.prune_trailless_peaks();
 
--- Removes peaks the import no longer returns (not notable), before linking.
+-- Removes peaks the import no longer returns. Visits on such a peak move to
+-- the nearest kept peak within 300 m; a peak whose visits can't move is
+-- kept, since deleting a peak cascades to its visits.
 create or replace function public.prune_unlisted_peaks(p_keep_ids bigint[])
 returns integer
 language plpgsql
@@ -467,6 +469,20 @@ as $$
 declare
   v_removed integer;
 begin
+  update public.visits v
+  set peak_id = m.new_id
+  from (
+    select p.id as old_id,
+      (select k.id from public.peaks k
+       where k.id = any(p_keep_ids) and ST_DWithin(k.location, p.location, 300)
+       order by k.location <-> p.location
+       limit 1) as new_id
+    from public.peaks p
+    where not (p.id = any(p_keep_ids))
+      and exists (select 1 from public.visits x where x.peak_id = p.id)
+  ) m
+  where v.peak_id = m.old_id and m.new_id is not null;
+
   delete from public.peaks p
   where not (p.id = any(p_keep_ids))
     and not exists (select 1 from public.visits v where v.peak_id = p.id);
@@ -481,26 +497,6 @@ $$;
 
 revoke all on function public.prune_unlisted_peaks(bigint[]) from public;
 grant execute on function public.prune_unlisted_peaks(bigint[]) to service_role;
-
--- Removes peaks no marked hiking route passes, after linking.
-create or replace function public.prune_trailless_peaks()
-returns integer
-language plpgsql
-set statement_timeout = '5min'
-as $$
-declare
-  v_removed integer;
-begin
-  delete from public.peaks p
-  where not exists (select 1 from public.peak_routes pr where pr.peak_id = p.id)
-    and not exists (select 1 from public.visits v where v.peak_id = p.id);
-  get diagnostics v_removed = row_count;
-  return v_removed;
-end;
-$$;
-
-revoke all on function public.prune_trailless_peaks() from public;
-grant execute on function public.prune_trailless_peaks() to service_role;
 
 -- =========================================================
 -- RPCs used by the app
