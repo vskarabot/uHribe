@@ -1,11 +1,12 @@
 // Imports Slovenian peaks and hiking routes from OpenStreetMap (via the
-// Overpass API) into Supabase.
+// Overpass API) into Supabase. Only peaks that match a summit on the
+// reference list (lib/reference_peaks.dart) are kept.
 //
 // Usage:
 //   cd tool
 //   dart pub get
 //   cp .env.example .env   # fill in SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
-//   dart run import_osm.dart
+//   dart run import_osm.dart                 # add --skip-routes to keep the routes already imported
 //
 // Safe to re-run: everything is upserted by OSM id, so running it again just
 // refreshes the data.
@@ -16,12 +17,14 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:http/http.dart' as http;
-import 'package:supabase/supabase.dart';
+import 'package:uhribe_import/import_common.dart';
+import 'package:uhribe_import/reference_peaks.dart';
 
 const _overpassMirrors = [
   'https://overpass-api.de/api/interpreter',
   'https://overpass.kumi.systems/api/interpreter',
   'https://overpass.openstreetmap.ru/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
 ];
 const _retryDelays = [Duration(seconds: 5), Duration(seconds: 15), Duration(seconds: 45)];
 const _retryableStatusCodes = {429, 503, 504};
@@ -29,56 +32,39 @@ const _retryableStatusCodes = {429, 503, 504};
 /// server's own [timeout:180], so a mirror that is merely slow still gets to
 /// answer, while one that has gone silent is given up on.
 const _requestTimeout = Duration(seconds: 240);
-const _batchSize = 500;
-const _linkBatchSize = 100;
+/// An OSM peak matches a reference summit of the same name whose elevation
+/// is within this many metres of its own.
+const _elevationToleranceM = 30;
 
-Future<void> main() async {
-  final env = _loadEnv('.env');
-  if (env == null) {
-    stderr.writeln('No .env in ${Directory.current.path}. '
-        'Run this from the tool/ directory: cp .env.example .env, then fill it in.');
-    exit(1);
-  }
+Future<void> main(List<String> args) async {
+  final client = connectFromEnv();
+  final skipRoutes = args.contains('--skip-routes');
 
-  final supabaseUrl = env['SUPABASE_URL'] ?? '';
-  final serviceRoleKey = env['SUPABASE_SERVICE_ROLE_KEY'] ?? '';
-  final missing = [
-    if (supabaseUrl.isEmpty) 'SUPABASE_URL',
-    if (serviceRoleKey.isEmpty) 'SUPABASE_SERVICE_ROLE_KEY',
-  ];
-  if (missing.isNotEmpty) {
-    stderr.writeln('.env is missing ${missing.join(' and ')}. See .env.example.');
-    exit(1);
-  }
-
-  final client = SupabaseClient(supabaseUrl, serviceRoleKey);
+  stdout.writeln('Fetching reference summit list …');
+  final reference = await fetchReferencePeaks();
+  stdout.writeln('  ${reference.length} entries.');
 
   stdout.writeln('Fetching peaks from Overpass …');
-  final peaks = await _fetchPeaks();
-  stdout.writeln('Found ${peaks.length} peaks. Upserting …');
-  await _upsertInBatches(client, 'upsert_peaks', peaks);
+  final allPeaks = await _fetchPeaks();
+  final peaks = _matchToReference(allPeaks, reference);
+  stdout.writeln('Kept ${peaks.length} of ${allPeaks.length} peaks. Upserting …');
+  await upsertInBatches(client, 'upsert_peaks', peaks);
 
-  stdout.writeln('Fetching hiking routes from Overpass …');
-  final routes = await _fetchHikingRoutes();
-  stdout.writeln('Found ${routes.length} routes. Upserting …');
-  await _upsertInBatches(client, 'upsert_hiking_routes', routes);
-
-  final peakIds = peaks.map((p) => p['id']).toList();
-
-  stdout.writeln('Removing peaks that are not notable …');
-  final unlisted = await client.rpc('prune_unlisted_peaks', params: {'p_keep_ids': peakIds});
-  stdout.writeln('  Removed $unlisted peaks.');
-
-  stdout.writeln('Linking peaks to nearby routes …');
-  for (var i = 0; i < peakIds.length; i += _linkBatchSize) {
-    final batch = peakIds.sublist(i, math.min(i + _linkBatchSize, peakIds.length));
-    await client.rpc('link_peaks_routes', params: {'p_peak_ids': batch});
-    stdout.writeln('  ${math.min(i + _linkBatchSize, peakIds.length)}/${peakIds.length}');
+  if (!skipRoutes) {
+    stdout.writeln('Fetching hiking routes from Overpass …');
+    final routes = await _fetchHikingRoutes();
+    stdout.writeln('Found ${routes.length} routes. Upserting …');
+    await upsertInBatches(client, 'upsert_hiking_routes', routes);
   }
 
-  stdout.writeln('Removing peaks without a marked trail …');
-  final trailless = await client.rpc('prune_trailless_peaks');
-  stdout.writeln('  Removed $trailless peaks.');
+  final peakIds = peaks.map((p) => p['id'] as int).toList();
+
+  stdout.writeln('Removing peaks not on the reference list …');
+  final removed = await client.rpc('prune_unlisted_peaks', params: {'p_keep_ids': peakIds});
+  stdout.writeln('  Removed $removed peaks.');
+
+  stdout.writeln('Linking peaks to nearby routes …');
+  await linkPeaksToRoutes(client, await fetchAllPeakIds(client));
 
   stdout.writeln('Classifying peaks by mountain area …');
   await client.rpc('classify_peak_mountain_areas');
@@ -92,13 +78,12 @@ Future<void> main() async {
 // ---------------------------------------------------------------------------
 
 Future<List<Map<String, dynamic>>> _fetchPeaks() async {
-  const query = r'''
+  const query = '''
     [out:json][timeout:180];
     area["ISO3166-1"="SI"][admin_level=2]->.si;
     (
-      node["natural"~"^(peak|hill)$"]["name"]["wikidata"](area.si);
-      node["natural"~"^(peak|hill)$"]["name"]["wikipedia"](area.si);
-      node["natural"~"^(peak|hill)$"]["name"]["summit:register"="yes"](area.si);
+      node["natural"="peak"]["name"](area.si);
+      node["natural"="hill"]["name"](area.si);
     );
     out body;
   ''';
@@ -116,8 +101,8 @@ Future<List<Map<String, dynamic>>> _fetchPeaks() async {
       'name': name,
       'name_alt': tags['name:sl'] ?? tags['alt_name'],
       'elevation_m': _parseElevation(tags['ele'], name),
-      'lat': el['lat'],
-      'lon': el['lon'],
+      'lat': (el['lat'] as num).toDouble(),
+      'lon': (el['lon'] as num).toDouble(),
       'wikipedia': tags['wikipedia'],
       'description': tags['description'],
     };
@@ -193,7 +178,12 @@ Future<Map<String, dynamic>> _postOverpass(String query) async {
             // goes quiet hangs the import forever instead of failing over.
             .timeout(_requestTimeout);
         if (response.statusCode == 200) {
-          return jsonDecode(response.body) as Map<String, dynamic>;
+          final json = jsonDecode(response.body) as Map<String, dynamic>;
+          // An overloaded server can answer 200 with a "remark" and no
+          // elements; taken at face value that prunes every peak.
+          if ((json['elements'] as List?)?.isNotEmpty ?? false) return json;
+          errors.add('$mirror: empty result ${json['remark'] ?? ''}');
+          break;
         }
         errors.add('$mirror: HTTP ${response.statusCode}');
         // Only the busy codes are worth waiting out on this mirror. Anything
@@ -223,24 +213,42 @@ Future<Map<String, dynamic>> _postOverpass(String query) async {
 }
 
 // ---------------------------------------------------------------------------
-// Supabase upload
-// ---------------------------------------------------------------------------
-
-Future<void> _upsertInBatches(
-  SupabaseClient client,
-  String rpcName,
-  List<Map<String, dynamic>> rows,
-) async {
-  for (var i = 0; i < rows.length; i += _batchSize) {
-    final batch = rows.sublist(i, math.min(i + _batchSize, rows.length));
-    await client.rpc(rpcName, params: {'p_rows': batch});
-    stdout.writeln('  ${math.min(i + _batchSize, rows.length)}/${rows.length}');
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+List<Map<String, dynamic>> _matchToReference(
+  List<Map<String, dynamic>> peaks,
+  List<ReferencePeak> reference,
+) {
+  final elevationsByName = <String, List<int?>>{};
+  for (final ref in reference) {
+    for (final name in ref.names.map(_normalizeName).toSet()) {
+      elevationsByName.putIfAbsent(name, () => []).add(ref.elevation);
+    }
+  }
+
+  return peaks.where((p) {
+    final ele = p['elevation_m'] as int?;
+    final names = [p['name'], p['name_alt']].whereType<String>().map(_normalizeName);
+    return names.any((n) {
+      final elevations = elevationsByName[n];
+      if (elevations == null) return false;
+      // Without an OSM elevation, only a name that occurs once is safe to trust.
+      if (ele == null) return elevations.length == 1;
+      return elevations.any((e) => e != null && (e - ele).abs() <= _elevationToleranceM);
+    });
+  }).toList();
+}
+
+String _normalizeName(String name) {
+  const folds = {'č': 'c', 'ć': 'c', 'š': 's', 'ž': 'z', 'đ': 'd', 'ô': 'o', 'é': 'e', 'è': 'e', 'à': 'a', 'ü': 'u', 'ö': 'o', 'ä': 'a'};
+  final lower = name.toLowerCase();
+  final buffer = StringBuffer();
+  for (final ch in lower.split('')) {
+    buffer.write(folds[ch] ?? ch);
+  }
+  return buffer.toString().replaceAll(RegExp(r'[^a-z0-9]'), '');
+}
 
 /// Parses an OSM `ele` tag into whole metres.
 ///
@@ -324,34 +332,3 @@ double _lineDistanceMeters(List<List<List<double>>> lines) {
 }
 
 double _degToRad(double deg) => deg * (math.pi / 180);
-
-/// Minimal .env parser: KEY=VALUE per line, '#' comments.
-///
-/// Returns null when the file isn't there at all, which the caller reports
-/// differently from a file that is present but incomplete — the usual cause
-/// of the first is running this from the repo root instead of `tool/`, and
-/// saying "copy .env.example" to someone who already has a .env is no help.
-Map<String, String>? _loadEnv(String path) {
-  final file = File(path);
-  if (!file.existsSync()) return null;
-
-  final env = <String, String>{};
-  for (final line in file.readAsLinesSync()) {
-    final trimmed = line.trim();
-    if (trimmed.isEmpty || trimmed.startsWith('#')) continue;
-    final idx = trimmed.indexOf('=');
-    if (idx == -1) continue;
-    final key = trimmed.substring(0, idx).trim();
-    var value = trimmed.substring(idx + 1).trim();
-    // Quotes are optional here but habitual in .env files, and an unstripped
-    // pair reaches SupabaseClient inside the URL, where it surfaces as an
-    // opaque parse failure rather than anything pointing back at this file.
-    if (value.length >= 2 &&
-        (value.startsWith('"') && value.endsWith('"') ||
-            value.startsWith("'") && value.endsWith("'"))) {
-      value = value.substring(1, value.length - 1);
-    }
-    env[key] = value;
-  }
-  return env;
-}
