@@ -86,7 +86,7 @@ class PillNavBar extends StatelessWidget {
           tintStrength: isIOS ? 0.12 : 0.16,
           blurSigma: 8,
           refraction: isIOS ? 7 : 16,
-          animated: !isIOS,
+          animated: false,
           borderColor: colorScheme.outlineVariant.withValues(alpha: isIOS ? 0.45 : 0.55),
           borderWidth: 1,
           shadows: [
