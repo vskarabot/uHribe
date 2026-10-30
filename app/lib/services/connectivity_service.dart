@@ -8,28 +8,36 @@ import '../config.dart';
 
 class ConnectivityService {
   ConnectivityService() {
-    _lifecycle = AppLifecycleListener(onResume: () => refresh());
-    _interfaceSub = Connectivity().onConnectivityChanged.listen((results) {
-      if (results.every((r) => r == ConnectivityResult.none)) {
-        _set(false);
-        _restartTimer();
-      } else {
+    _lifecycle = AppLifecycleListener(
+      onResume: () {
+        _foreground = true;
+        _retryDelay = _firstRetry;
         refresh();
-      }
+      },
+      onPause: () {
+        _foreground = false;
+        _timer?.cancel();
+      },
+    );
+    _interfaceSub = Connectivity().onConnectivityChanged.listen((_) {
+      _retryDelay = _firstRetry;
+      refresh();
     });
     refresh();
-    _restartTimer();
   }
 
   static const _probeTimeout = Duration(seconds: 5);
-  static const _pollWhileOffline = Duration(seconds: 20);
-  static const _pollWhileOnline = Duration(minutes: 3);
+  static const _firstRetry = Duration(seconds: 20);
+  static const _maxRetry = Duration(minutes: 5);
 
   final _controller = StreamController<bool>.broadcast();
   late final StreamSubscription<List<ConnectivityResult>> _interfaceSub;
   late final AppLifecycleListener _lifecycle;
   Timer? _timer;
   Future<bool>? _inFlight;
+  Duration _retryDelay = _firstRetry;
+  bool _foreground = true;
+  bool _noNetwork = false;
 
   bool _isOnline = true;
 
@@ -38,12 +46,18 @@ class ConnectivityService {
   Stream<bool> get onStatusChange => _controller.stream;
 
   Future<bool> refresh() {
-    return _inFlight ??= _probe().whenComplete(() => _inFlight = null);
+    return _inFlight ??= _probe().whenComplete(() {
+      _inFlight = null;
+      _scheduleRetry();
+    });
   }
 
   Future<bool> _probe() async {
+    _noNetwork = false;
+
     final url = Config.supabaseUrl;
     if (url.isEmpty) {
+      _noNetwork = true;
       _set(false);
       return false;
     }
@@ -51,6 +65,7 @@ class ConnectivityService {
     try {
       final interfaces = await Connectivity().checkConnectivity();
       if (interfaces.every((r) => r == ConnectivityResult.none)) {
+        _noNetwork = true;
         _set(false);
         return false;
       }
@@ -73,18 +88,18 @@ class ConnectivityService {
   }
 
   void _set(bool online) {
+    if (online) _retryDelay = _firstRetry;
     if (_isOnline == online) return;
     _isOnline = online;
     if (!_controller.isClosed) _controller.add(online);
-    _restartTimer();
   }
 
-  void _restartTimer() {
+  void _scheduleRetry() {
     _timer?.cancel();
-    _timer = Timer.periodic(
-      _isOnline ? _pollWhileOnline : _pollWhileOffline,
-      (_) => refresh(),
-    );
+    if (_isOnline || _noNetwork || !_foreground) return;
+    _timer = Timer(_retryDelay, () => refresh());
+    final next = _retryDelay * 2;
+    _retryDelay = next > _maxRetry ? _maxRetry : next;
   }
 
   void dispose() {
