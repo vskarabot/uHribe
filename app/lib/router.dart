@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'features/auth/login_screen.dart';
 import 'features/auth/register_screen.dart';
+import 'features/onboarding/location_permission_screen.dart';
 import 'features/routes/route_detail_screen.dart';
 import 'features/shell/home_shell.dart';
 import 'features/social/friends_screen.dart';
@@ -13,6 +14,7 @@ import 'providers.dart';
 class _RouterRefreshNotifier extends ChangeNotifier {
   _RouterRefreshNotifier(Ref ref) {
     ref.listen(sessionProvider, (_, _) => notifyListeners());
+    ref.listen(locationPromptSeenProvider, (_, _) => notifyListeners());
   }
 }
 
@@ -29,7 +31,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           state.matchedLocation == '/login' || state.matchedLocation == '/register';
 
       if (!loggedIn) return loggingIn ? null : '/login';
-      if (loggingIn) return '/';
+
+      final onPrompt = state.matchedLocation == '/location';
+      if (!ref.read(locationPromptSeenProvider)) return onPrompt ? null : '/location';
+      if (loggingIn || onPrompt) return '/';
       return null;
     },
     routes: [
@@ -40,6 +45,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: '/location',
+        builder: (context, state) => const LocationPermissionScreen(),
       ),
       GoRoute(
         path: '/',

@@ -6,6 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../l10n/strings.dart';
 import '../../providers.dart';
 import '../../theme.dart';
+import 'auth_switch_link.dart';
+import 'password_field.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -53,6 +55,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -67,7 +70,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   Icon(
                     Icons.terrain_rounded,
                     size: 64,
-                    color: Theme.of(context).colorScheme.primary,
+                    color: colorScheme.primary,
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -87,16 +90,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  ShadowedField(
-                    child: TextFormField(
-                      controller: _passwordController,
-                      obscureText: true,
-                      autofillHints: const [AutofillHints.password],
-                      decoration: const InputDecoration(labelText: Strings.password),
-                      validator: (value) =>
-                          (value == null || value.isEmpty) ? '—' : null,
-                      onFieldSubmitted: (_) => _submit(),
-                    ),
+                  PasswordField(
+                    controller: _passwordController,
+                    label: Strings.password,
+                    autofillHints: const [AutofillHints.password],
+                    validator: (value) => (value == null || value.isEmpty) ? '—' : null,
+                    onSubmitted: (_) => _submit(),
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 12),
@@ -117,9 +116,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         : const Text(Strings.loginButton),
                   ),
                   const SizedBox(height: 8),
-                  TextButton(
+                  AuthSwitchLink(
+                    prompt: Strings.noAccount,
+                    action: Strings.noAccountAction,
                     onPressed: _loading ? null : () => context.go('/register'),
-                    child: const Text(Strings.noAccount),
                   ),
                 ],
               ),
