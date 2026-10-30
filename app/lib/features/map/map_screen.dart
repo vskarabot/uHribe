@@ -529,7 +529,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
       if (map == null || !mounted) return;
       final show = enabled && await _hasLocationPermission();
       await map.location.updateSettings(
-        LocationComponentSettings(enabled: show, pulsingEnabled: show),
+        LocationComponentSettings(enabled: show, pulsingEnabled: false),
       );
     });
   }
@@ -573,7 +573,7 @@ class _MapScreenState extends ConsumerState<MapScreen> {
 
     _appliedLocationEnabled = true;
     await map.location.updateSettings(
-      LocationComponentSettings(enabled: true, pulsingEnabled: true),
+      LocationComponentSettings(enabled: true, pulsingEnabled: false),
     );
 
     final Position position;
