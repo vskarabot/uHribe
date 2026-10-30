@@ -52,7 +52,6 @@ class Strings {
   static const friendActionError = 'Dejanja ni bilo mogoče izvesti.';
   static const feedEmpty = 'Tvoji prijatelji še niso osvojili nobenega vrha.';
 
-  static String pendingRequests(int count) => '$friendRequests ($count)';
 
   static String greeting(String? name) {
     final trimmed = name?.trim() ?? '';

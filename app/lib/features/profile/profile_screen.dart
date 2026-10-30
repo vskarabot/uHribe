@@ -11,6 +11,7 @@ import '../../models/stats.dart';
 import '../../models/visit.dart';
 import '../../providers.dart';
 import '../../theme.dart';
+import '../../widgets/confirm_dialog.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -23,7 +24,7 @@ class ProfileScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(Strings.navProfile),
+        title: Text(Strings.navProfile, style: AppTheme.tabTitleStyle(context)),
         actions: [
           TextButton(
             style: TextButton.styleFrom(
@@ -660,32 +661,17 @@ class _VisitTile extends StatelessWidget {
               icon: Icon(Icons.delete_outline, color: error),
               tooltip: Strings.delete,
               onPressed: () async {
-                if (await _confirmDelete(context)) onDelete();
+                final confirmed = await showConfirmDialog(
+                  context,
+                  message: Strings.deleteVisitConfirm,
+                  confirmLabel: Strings.delete,
+                );
+                if (confirmed) onDelete();
               },
             ),
           ],
         ),
       ),
     );
-  }
-
-  Future<bool> _confirmDelete(BuildContext context) async {
-    return await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            content: const Text(Strings.deleteVisitConfirm),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text(Strings.cancel),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text(Strings.delete),
-              ),
-            ],
-          ),
-        ) ??
-        false;
   }
 }

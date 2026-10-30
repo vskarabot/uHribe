@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 
 import '../../l10n/strings.dart';
 import '../../providers.dart';
+import '../../theme.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -11,7 +12,9 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: AppBar(title: const Text(Strings.navSettings)),
+      appBar: AppBar(
+        title: Text(Strings.navSettings, style: AppTheme.tabTitleStyle(context)),
+      ),
       body: CustomScrollView(
         slivers: [
           SliverPadding(

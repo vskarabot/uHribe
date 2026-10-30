@@ -14,6 +14,9 @@ class AppTheme {
 
   static const _textScale = 0.88;
 
+  static TextStyle? tabTitleStyle(BuildContext context) =>
+      Theme.of(context).appBarTheme.titleTextStyle?.copyWith(fontSize: 22);
+
   static BorderSide fieldBorder(ColorScheme colorScheme) =>
       BorderSide(color: colorScheme.outline.withValues(alpha: 0.5));
 
@@ -102,6 +105,11 @@ class AppTheme {
           side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.5)),
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           shape: const StadiumBorder(),
+          textStyle: const TextStyle(fontFamily: fontFamily, fontWeight: FontWeight.w600),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
           textStyle: const TextStyle(fontFamily: fontFamily, fontWeight: FontWeight.w600),
         ),
       ),

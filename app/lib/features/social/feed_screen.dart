@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../l10n/strings.dart';
 import '../../models/friend.dart';
 import '../../providers.dart';
+import '../../theme.dart';
 import 'user_avatar.dart';
 
 class FeedScreen extends ConsumerWidget {
@@ -17,11 +18,10 @@ class FeedScreen extends ConsumerWidget {
     final incoming = ref.watch(incomingRequestCountProvider);
     final hasFriends =
         friendsAsync.value?.any((f) => f.status == FriendshipStatus.friends) ?? true;
-    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(Strings.navFeed),
+        title: Text(Strings.navFeed, style: AppTheme.tabTitleStyle(context)),
         actions: [
           IconButton(
             tooltip: Strings.friendsTitle,
@@ -56,32 +56,19 @@ class FeedScreen extends ConsumerWidget {
               ),
             ],
           ),
-          data: (items) => ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom + 8),
-            children: [
-              if (incoming > 0)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                  child: Card(
-                    child: ListTile(
-                      leading: Icon(Icons.person_add_alt_1, color: colorScheme.primary),
-                      title: Text(Strings.pendingRequests(incoming)),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: () => context.push('/friends'),
-                    ),
-                  ),
+          data: (items) => items.isEmpty
+              ? _EmptyFeed(hasFriends: hasFriends)
+              : ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom + 8),
+                  children: [
+                    for (final item in items)
+                      _FeedTile(
+                        item: item,
+                        onTap: () => ref.read(peakFocusProvider.notifier).focus(item.peakId),
+                      ),
+                  ],
                 ),
-              if (items.isEmpty)
-                _EmptyFeed(hasFriends: hasFriends)
-              else
-                for (final item in items)
-                  _FeedTile(
-                    item: item,
-                    onTap: () => ref.read(peakFocusProvider.notifier).focus(item.peakId),
-                  ),
-            ],
-          ),
         ),
       ),
     );
@@ -120,29 +107,40 @@ class _EmptyFeed extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(32, 120, 32, 0),
-      child: Column(
-        children: [
-          Icon(
-            Icons.people_outline,
-            size: 48,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            hasFriends ? Strings.feedEmpty : Strings.noFriendsYet,
-            textAlign: TextAlign.center,
-          ),
-          if (!hasFriends) ...[
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: () => context.push('/friends'),
-              icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
-              label: const Text(Strings.addFriends),
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.people_outline,
+                    size: 48,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    hasFriends ? Strings.feedEmpty : Strings.noFriendsYet,
+                    textAlign: TextAlign.center,
+                  ),
+                  if (!hasFriends) ...[
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: () => context.push('/friends'),
+                      icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
+                      label: const Text(Strings.addFriends),
+                    ),
+                  ],
+                ],
+              ),
             ),
-          ],
-        ],
+          ),
+        ),
       ),
     );
   }

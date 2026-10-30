@@ -84,7 +84,7 @@ class _PeakListScreenState extends ConsumerState<PeakListScreen> {
       appBar: AppBar(
         title: Text(
           Strings.greeting(ref.watch(myProfileProvider).value?.displayName),
-          style: Theme.of(context).appBarTheme.titleTextStyle?.copyWith(fontSize: 22),
+          style: AppTheme.tabTitleStyle(context),
         ),
       ),
       body: Column(
