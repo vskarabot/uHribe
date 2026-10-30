@@ -24,6 +24,7 @@ class AuthRepository {
       email: email,
       password: password,
       data: {'display_name': displayName},
+      emailRedirectTo: 'com.uhribe.app://authentication',
     );
     return response.session != null;
   }

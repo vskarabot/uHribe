@@ -374,3 +374,18 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
 }
 
 final themeModeProvider = NotifierProvider<ThemeModeNotifier, ThemeMode>(ThemeModeNotifier.new);
+
+class LocationPromptSeenNotifier extends Notifier<bool> {
+  static const _prefsKey = 'location_prompt_seen';
+
+  @override
+  bool build() => ref.watch(sharedPreferencesProvider).getBool(_prefsKey) ?? false;
+
+  Future<void> markSeen() async {
+    state = true;
+    await ref.read(sharedPreferencesProvider).setBool(_prefsKey, true);
+  }
+}
+
+final locationPromptSeenProvider =
+    NotifierProvider<LocationPromptSeenNotifier, bool>(LocationPromptSeenNotifier.new);

@@ -16,11 +16,19 @@ class Strings {
   static const loginGenericError = 'Prijava ni uspela. Poskusite znova.';
   static const logout = 'Odjava';
 
-  static const noAccount = 'Nimaš računa? Registriraj se';
-  static const haveAccount = 'Že imaš račun? Prijavi se';
+  static const noAccount = 'Nimaš računa? ';
+  static const noAccountAction = 'Registriraj se';
+  static const haveAccount = 'Že imaš račun? ';
+  static const haveAccountAction = 'Prijavi se';
   static const registerTitle = 'Registracija';
   static const registerButton = 'Ustvari račun';
-  static const passwordTooShort = 'Geslo mora imeti vsaj 6 znakov.';
+  static const passwordRuleLength = 'Vsaj 8 znakov';
+  static const passwordRuleCase = 'Mala in velika črka';
+  static const passwordRuleDigit = 'Vsaj ena številka';
+  static const passwordRuleSymbol = 'Vsaj en poseben znak';
+  static const confirmPassword = 'Ponovite geslo';
+  static const showPassword = 'Pokaži geslo';
+  static const hidePassword = 'Skrij geslo';
   static const registerError = 'Registracija ni uspela. Poskusite znova.';
   static const registerConfirmEmail =
       'Na vaš e-poštni naslov smo poslali povezavo za potrditev. Po potrditvi '
@@ -181,6 +189,12 @@ class Strings {
   static const locationPermissionDeniedForever =
       'Dostop do lokacije je zavrnjen. Omogočite ga v nastavitvah aplikacije.';
   static const locationUnavailable = 'Vaše lokacije ni bilo mogoče določiti.';
+  static const locationPromptTitle = 'Dovolite dostop do lokacije';
+  static const locationPromptBody =
+      'Lokacijo uporabljamo, da vam pokažemo, kje ste na zemljevidu, poiščemo '
+      'vrhove v bližini in potrdimo vaš vzpon, ko ste na vrhu.';
+  static const locationPromptAllow = 'Dovoli lokacijo';
+  static const locationPromptSkip = 'Ne zdaj';
   static const showMyLocation = 'Pokaži mojo lokacijo';
   static const showSatelliteMap = 'Satelitski prikaz';
   static const showOutdoorsMap = 'Zemljevid terena';
