@@ -62,13 +62,61 @@ class FeedScreen extends ConsumerWidget {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(context).bottom + 8),
                   children: [
-                    for (final item in items)
+                    for (final (index, item) in items.indexed) ...[
+                      if (index == 0 ||
+                          _sectionOf(items[index - 1].visitedOn) != _sectionOf(item.visitedOn))
+                        _SectionHeader(_sectionOf(item.visitedOn)),
                       _FeedTile(
                         item: item,
+                        showDate: _sectionOf(item.visitedOn) == Strings.feedThisWeek,
                         onTap: () => ref.read(peakFocusProvider.notifier).focus(item.peakId),
                       ),
+                    ],
                   ],
                 ),
+        ),
+      ),
+    );
+  }
+
+  static String _sectionOf(DateTime visitedOn) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(visitedOn.year, visitedOn.month, visitedOn.day);
+    if (!day.isBefore(today)) return Strings.feedToday;
+    final weekStart = today.subtract(Duration(days: today.weekday - 1));
+    if (!day.isBefore(weekStart)) return Strings.feedThisWeek;
+    return _formatDate(day);
+  }
+}
+
+String _formatDate(DateTime d) => '${d.day}. ${d.month}. ${d.year}';
+
+String _formatTime(DateTime t) =>
+    '${t.hour}:${t.minute.toString().padLeft(2, '0')}';
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 20, 16, 4),
+      padding: const EdgeInsets.only(bottom: 6),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+        ),
+      ),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
         ),
       ),
     );
@@ -76,24 +124,42 @@ class FeedScreen extends ConsumerWidget {
 }
 
 class _FeedTile extends StatelessWidget {
-  const _FeedTile({required this.item, required this.onTap});
+  const _FeedTile({required this.item, required this.showDate, required this.onTap});
 
   final FeedItem item;
+  final bool showDate;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final d = item.visitedOn;
     return ListTile(
       leading: UserAvatar(url: item.avatarUrl),
-      title: Text(item.displayName ?? '', style: const TextStyle(fontWeight: FontWeight.w600)),
+      title: Row(
+        children: [
+          Flexible(
+            child: Text(
+              item.displayName ?? '',
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            showDate
+                ? '${item.visitedOn.day}. ${item.visitedOn.month}. · ${_formatTime(item.visitedAt)}'
+                : _formatTime(item.visitedAt),
+            style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+          ),
+        ],
+      ),
       subtitle: Text(
         [item.peakName, if (item.elevationM != null) '${item.elevationM} m'].join(' · '),
       ),
-      trailing: Text(
-        '${d.day}. ${d.month}. ${d.year}',
-        style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+      trailing: Icon(
+        Icons.chevron_right,
+        size: 20,
+        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
       ),
       onTap: onTap,
     );

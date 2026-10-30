@@ -909,6 +909,7 @@ $$;
 
 -- Friends' ascents, newest climb first. Leaves out where exactly they stood
 -- and their notes.
+drop function if exists public.friends_feed(integer);
 create or replace function public.friends_feed(p_limit integer default 50)
 returns table (
   visit_id uuid,
@@ -919,7 +920,7 @@ returns table (
   peak_name text,
   elevation_m integer,
   visited_on date,
-  created_at timestamptz
+  visited_at timestamptz
 )
 language sql
 stable
@@ -931,12 +932,13 @@ as $$
     where status = 'accepted' and auth.uid() in (requester_id, addressee_id)
   )
   select v.id, v.user_id, pr.display_name, pr.avatar_url,
-         v.peak_id, pk.name, pk.elevation_m, v.visited_on, v.created_at
+         v.peak_id, pk.name, pk.elevation_m, v.visited_on,
+         coalesce(v.device_time, v.created_at)
   from public.visits v
   join friends fr on fr.id = v.user_id
   join public.profiles pr on pr.id = v.user_id
   join public.peaks pk on pk.id = v.peak_id
-  order by v.visited_on desc, v.created_at desc
+  order by v.visited_on desc, coalesce(v.device_time, v.created_at) desc
   limit least(greatest(p_limit, 1), 200);
 $$;
 

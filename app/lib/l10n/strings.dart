@@ -51,6 +51,9 @@ class Strings {
   static const remove = 'Odstrani';
   static const friendActionError = 'Dejanja ni bilo mogoče izvesti.';
   static const feedEmpty = 'Tvoji prijatelji še niso osvojili nobenega vrha.';
+  static const feedToday = 'Danes';
+  static const feedThisWeek = 'V tem tednu';
+
 
 
   static String greeting(String? name) {
