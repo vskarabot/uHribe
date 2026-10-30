@@ -57,6 +57,7 @@ class FeedItem {
   final String peakName;
   final int? elevationM;
   final DateTime visitedOn;
+  final DateTime visitedAt;
 
   const FeedItem({
     required this.visitId,
@@ -67,6 +68,7 @@ class FeedItem {
     required this.peakName,
     this.elevationM,
     required this.visitedOn,
+    required this.visitedAt,
   });
 
   factory FeedItem.fromJson(Map<String, dynamic> json) {
@@ -79,6 +81,7 @@ class FeedItem {
       peakName: json['peak_name'] as String,
       elevationM: json['elevation_m'] as int?,
       visitedOn: DateTime.parse(json['visited_on'] as String),
+      visitedAt: DateTime.parse(json['visited_at'] as String).toLocal(),
     );
   }
 }

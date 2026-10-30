@@ -7,6 +7,7 @@ import '../../l10n/strings.dart';
 import '../../models/friend.dart';
 import '../../providers.dart';
 import '../../theme.dart';
+import '../../widgets/confirm_dialog.dart';
 import 'user_avatar.dart';
 
 class FriendsScreen extends ConsumerStatefulWidget {
@@ -89,23 +90,12 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
       });
 
   Future<void> _confirmRemove(Friend f) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        content: const Text(Strings.removeFriendConfirm),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text(Strings.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text(Strings.remove),
-          ),
-        ],
-      ),
+    final confirmed = await showConfirmDialog(
+      context,
+      message: Strings.removeFriendConfirm,
+      confirmLabel: Strings.remove,
     );
-    if (confirmed == true) await _remove(f);
+    if (confirmed) await _remove(f);
   }
 
   Widget _actions(Friend f) {
