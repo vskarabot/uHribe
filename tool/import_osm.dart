@@ -57,10 +57,10 @@ Future<void> main(List<String> args) async {
     await upsertInBatches(client, 'upsert_hiking_routes', routes);
   }
 
-  final peakIds = peaks.map((p) => p['id'] as int).toList();
+  final osmIds = peaks.map((p) => p['osm_id'] as int).toList();
 
   stdout.writeln('Removing peaks not on the reference list …');
-  final removed = await client.rpc('prune_unlisted_peaks', params: {'p_keep_ids': peakIds});
+  final removed = await client.rpc('prune_unlisted_peaks', params: {'p_keep_osm_ids': osmIds});
   stdout.writeln('  Removed $removed peaks.');
 
   stdout.writeln('Linking peaks to nearby routes …');
@@ -97,7 +97,7 @@ Future<List<Map<String, dynamic>>> _fetchPeaks() async {
     // The query filters on ["name"], so every element that comes back has one.
     final name = tags['name'] as String;
     return {
-      'id': el['id'],
+      'osm_id': el['id'],
       'name': name,
       'name_alt': tags['name:sl'] ?? tags['alt_name'],
       'elevation_m': _parseElevation(tags['ele'], name),
