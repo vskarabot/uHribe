@@ -137,18 +137,6 @@ class PeakDetailsSheet extends ConsumerWidget {
                     ],
                   ],
                 ),
-                const SizedBox(height: 16),
-                _SheetDivider(),
-                const SizedBox(height: 14),
-                _InfoRow(
-                  icon: Icons.place_outlined,
-                  label: Strings.coordinates,
-                  value: '${peak.lat.toStringAsFixed(5)}, ${peak.lon.toStringAsFixed(5)}',
-                ),
-                if (peak.description != null && peak.description!.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Text(peak.description!),
-                ],
                 const SizedBox(height: 20),
                 FilledButton.icon(
                   icon: const Icon(Icons.flag),
@@ -158,14 +146,33 @@ class PeakDetailsSheet extends ConsumerWidget {
                 const SizedBox(height: 22),
                 _SheetDivider(),
                 const SizedBox(height: 16),
-                Text(
-                  Strings.routesTitle,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.onSurface,
-                  ),
+                _SectionTitle(Strings.detailsTitle),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.place_outlined,
+                      size: 16,
+                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${peak.lat.toStringAsFixed(5)}, ${peak.lon.toStringAsFixed(5)}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ],
                 ),
+                if (peak.description != null && peak.description!.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(peak.description!),
+                ],
+                const SizedBox(height: 22),
+                _SheetDivider(),
+                const SizedBox(height: 16),
+                _SectionTitle(Strings.routesTitle),
                 const SizedBox(height: 8),
                 routesAsync.when(
                   loading: () => const Padding(
@@ -342,30 +349,19 @@ class _SheetDivider extends StatelessWidget {
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
+class _SectionTitle extends StatelessWidget {
+  final String text;
 
-  const _InfoRow({required this.icon, required this.label, required this.value});
+  const _SectionTitle(this.text);
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 18),
-          const SizedBox(width: 10),
-          Text('$label: ', style: const TextStyle(fontWeight: FontWeight.w500)),
-          Text(
-            value,
-            style: TextStyle(
-              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-            ),
-          ),
-        ],
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+        color: Theme.of(context).colorScheme.onSurface,
       ),
     );
   }

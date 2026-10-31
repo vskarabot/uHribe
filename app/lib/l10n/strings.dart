@@ -84,6 +84,7 @@ class Strings {
   static const coordinates = 'Koordinate';
   static const wikipediaLink = 'Wikipedia';
   static const routesTitle = 'Planinske poti';
+  static const detailsTitle = 'Podrobnosti';
   static const noRoutes = 'Za ta vrh ni znanih poti.';
   static const alreadyVisited = 'Obiskano';
   static const save = 'Shrani';
