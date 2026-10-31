@@ -192,11 +192,13 @@ class _MapScreenState extends ConsumerState<MapScreen> {
                       _MapControlButton(
                         tooltip: styleToggleTooltip,
                         onPressed: _styleReady ? _toggleSatellite : null,
+                        active: _satellite,
                         child: _ControlIcon(
                           _satellite
                               ? Icons.terrain_outlined
                               : Icons.satellite_alt_outlined,
                           enabled: _styleReady,
+                          active: _satellite,
                         ),
                       ),
                       const SizedBox(height: _controlsGap),
@@ -614,35 +616,36 @@ class _MapControlButton extends StatelessWidget {
     required this.tooltip,
     required this.onPressed,
     required this.child,
+    this.active = false,
   });
 
   static const size = 48.0;
-  static const _discSize = 43.0;
 
   final String tooltip;
   final VoidCallback? onPressed;
   final Widget child;
+  final bool active;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        color: Color(0x4DF7F7F7),
-      ),
-      child: Center(
-        child: Tooltip(
-          message: tooltip,
-          child: Material(
-            color: Colors.black,
-            shape: const CircleBorder(),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: onPressed,
-              child: SizedBox.square(dimension: _discSize, child: child),
-            ),
+    final colorScheme = Theme.of(context).colorScheme;
+    return ShadowedField(
+      radius: size / 2,
+      child: Material(
+        color: active
+            ? colorScheme.secondaryContainer
+            : colorScheme.surfaceContainerLowest,
+        shape: CircleBorder(
+          side: active
+              ? BorderSide(color: colorScheme.primary.withValues(alpha: 0.35))
+              : AppTheme.fieldBorder(colorScheme),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          child: SizedBox.square(
+            dimension: size,
+            child: Tooltip(message: tooltip, child: child),
           ),
         ),
       ),
@@ -651,14 +654,21 @@ class _MapControlButton extends StatelessWidget {
 }
 
 class _ControlIcon extends StatelessWidget {
-  const _ControlIcon(this.icon, {this.enabled = true});
+  const _ControlIcon(this.icon, {this.enabled = true, this.active = false});
 
   final IconData icon;
   final bool enabled;
+  final bool active;
 
   @override
   Widget build(BuildContext context) {
-    return Icon(icon, size: 22, color: enabled ? Colors.white : Colors.white38);
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = !enabled
+        ? colorScheme.onSurface.withValues(alpha: 0.38)
+        : active
+            ? colorScheme.onSecondaryContainer
+            : colorScheme.onSurface;
+    return Icon(icon, size: 22, color: color);
   }
 }
 
@@ -681,7 +691,11 @@ class _CompassButton extends StatelessWidget {
           onPressed: onPressed,
           child: Transform.rotate(
             angle: -bearing * math.pi / 180,
-            child: const CustomPaint(painter: _CompassNeedlePainter()),
+            child: CustomPaint(
+              painter: _CompassNeedlePainter(
+                southColor: Theme.of(context).colorScheme.outline,
+              ),
+            ),
           ),
         ),
       ),
@@ -690,7 +704,9 @@ class _CompassButton extends StatelessWidget {
 }
 
 class _CompassNeedlePainter extends CustomPainter {
-  const _CompassNeedlePainter();
+  const _CompassNeedlePainter({required this.southColor});
+
+  final Color southColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -711,11 +727,12 @@ class _CompassNeedlePainter extends CustomPainter {
       ..close();
 
     canvas.drawPath(north, Paint()..color = const Color(0xFFF67E64));
-    canvas.drawPath(south, Paint()..color = const Color(0xFFFCFCFC));
+    canvas.drawPath(south, Paint()..color = southColor);
   }
 
   @override
-  bool shouldRepaint(_CompassNeedlePainter oldDelegate) => false;
+  bool shouldRepaint(_CompassNeedlePainter oldDelegate) =>
+      oldDelegate.southColor != southColor;
 }
 
 class _FilterButton extends ConsumerWidget {

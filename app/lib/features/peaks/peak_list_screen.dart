@@ -117,12 +117,11 @@ class _PeakListScreenState extends ConsumerState<PeakListScreen> {
             child: PeakFilterChips(),
           ),
           Container(
-            width: double.infinity,
-            margin: const EdgeInsets.only(top: 8),
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+            margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            padding: const EdgeInsets.only(bottom: 6),
             decoration: BoxDecoration(
               border: Border(
-                top: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
+                bottom: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
               ),
             ),
             child: Row(
@@ -131,8 +130,8 @@ class _PeakListScreenState extends ConsumerState<PeakListScreen> {
                   Strings.navPeaks,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.onSurface,
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
                   ),
                 ),
                 const Spacer(),
@@ -181,7 +180,21 @@ class _PeakListScreenState extends ConsumerState<PeakListScreen> {
                     final visited = visitedIds.contains(peak.id);
                     final meta = _metaLine(peak, selectedNearby);
                     return ListTile(
-                      title: Text(peak.name, style: const TextStyle(fontWeight: FontWeight.w500)),
+                      title: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              peak.name,
+                              style: const TextStyle(fontWeight: FontWeight.w500),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (visited) ...[
+                            const SizedBox(width: 6),
+                            Icon(Icons.check_circle, size: 16, color: colorScheme.primary),
+                          ],
+                        ],
+                      ),
                       subtitle: meta == null
                           ? null
                           : Text(
@@ -190,19 +203,10 @@ class _PeakListScreenState extends ConsumerState<PeakListScreen> {
                                 color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
                               ),
                             ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (visited) ...[
-                            Icon(Icons.check_circle, size: 18, color: colorScheme.primary),
-                            const SizedBox(width: 6),
-                          ],
-                          Icon(
-                            Icons.chevron_right,
-                            size: 20,
-                            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                          ),
-                        ],
+                      trailing: Icon(
+                        Icons.chevron_right,
+                        size: 20,
+                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                       ),
                       onTap: () => ref.read(peakFocusProvider.notifier).focus(peak.id),
                     );
