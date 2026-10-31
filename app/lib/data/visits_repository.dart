@@ -17,9 +17,15 @@ class VisitsRepository {
     final rows = await _client
         .from('visits')
         .select('id, user_id, peak_id, route_id, visited_on, notes, created_at, '
-            'distance_m, peaks(name, elevation_m)')
+            'device_time, distance_m, peaks(name, elevation_m)')
         .order('visited_on', ascending: false);
-    return (rows as List).map((r) => Visit.fromJson(r as Map<String, dynamic>)).toList();
+    final visits =
+        (rows as List).map((r) => Visit.fromJson(r as Map<String, dynamic>)).toList();
+    visits.sort((a, b) {
+      final byDay = b.visitedOn.compareTo(a.visitedOn);
+      return byDay != 0 ? byDay : b.visitedAt.compareTo(a.visitedAt);
+    });
+    return visits;
   }
 
   Future<void> deleteVisit(String id) async {

@@ -12,6 +12,7 @@ import '../../models/visit.dart';
 import '../../providers.dart';
 import '../../theme.dart';
 import '../../widgets/confirm_dialog.dart';
+import '../../widgets/date_sections.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -524,8 +525,6 @@ String _groupThousands(int value) {
   return buffer.toString();
 }
 
-String _formatDate(DateTime date) => '${date.day}. ${date.month}. ${date.year}';
-
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
@@ -577,6 +576,7 @@ class _RejectedCheckInsSection extends ConsumerWidget {
       children: [
         ...rejected.map(
           (checkIn) => Card(
+            margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(
               leading: Icon(Icons.error_outline, color: colorScheme.error),
               title: Text(checkIn.peakName),
@@ -629,9 +629,19 @@ class _VisitsSectionState extends ConsumerState<_VisitsSection> {
       );
     }
     return Column(
-      children: visible
-          .map((v) => _VisitTile(visit: v, onDelete: () => _delete(v)))
-          .toList(growable: false),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final (index, visit) in visible.indexed) ...[
+          if (index == 0 ||
+              dateSectionOf(visible[index - 1].visitedOn) != dateSectionOf(visit.visitedOn))
+            DateSectionHeader(
+              dateSectionOf(visit.visitedOn),
+              horizontalMargin: 0,
+              topMargin: index == 0 ? 4 : 20,
+            ),
+          _VisitTile(visit: visit, onDelete: () => _delete(visit)),
+        ],
+      ],
     );
   }
 }
@@ -644,33 +654,41 @@ class _VisitTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final error = Theme.of(context).colorScheme.error;
-    return Card(
-      child: ListTile(
-        contentPadding: const EdgeInsets.only(left: 16, right: 4),
-        title: Text(visit.peakName ?? '#${visit.peakId}'),
-        subtitle: Text(
-          '${_formatDate(visit.visitedOn)}'
-          '${visit.notes != null && visit.notes!.isNotEmpty ? ' · ${visit.notes}' : ''}',
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (visit.peakElevationM != null) Text('${visit.peakElevationM} m'),
-            IconButton(
-              icon: Icon(Icons.delete_outline, color: error),
-              tooltip: Strings.delete,
-              onPressed: () async {
-                final confirmed = await showConfirmDialog(
-                  context,
-                  message: Strings.deleteVisitConfirm,
-                  confirmLabel: Strings.delete,
-                );
-                if (confirmed) onDelete();
-              },
+    final colorScheme = Theme.of(context).colorScheme;
+    final subtitle = [
+      if (visit.peakElevationM != null) '${visit.peakElevationM} m',
+      if (visit.notes != null && visit.notes!.isNotEmpty) visit.notes!,
+    ].join(' · ');
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Row(
+        children: [
+          Flexible(
+            child: Text(
+              visit.peakName ?? '#${visit.peakId}',
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            visitTimeLabel(visit.visitedOn, visit.visitedAt),
+            style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+          ),
+        ],
+      ),
+      subtitle: subtitle.isEmpty ? null : Text(subtitle),
+      trailing: IconButton(
+        icon: Icon(Icons.delete_outline, color: colorScheme.error),
+        tooltip: Strings.delete,
+        onPressed: () async {
+          final confirmed = await showConfirmDialog(
+            context,
+            message: Strings.deleteVisitConfirm,
+            confirmLabel: Strings.delete,
+          );
+          if (confirmed) onDelete();
+        },
       ),
     );
   }
